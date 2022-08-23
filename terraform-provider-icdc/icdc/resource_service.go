@@ -1,5 +1,5 @@
 package icdc
-
+/*
 import (
 	"bytes"
 	"encoding/json"
@@ -75,5 +75,7 @@ func resourceServiceRequest() *schema.Resource {
 				Type:     schema.TypeString,
 				Required: true,
 			},
+		},
 	}
 }
+*/

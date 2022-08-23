@@ -7,6 +7,12 @@ terraform {
   }
 }
 
+provider "icdc" {
+  //username = ""
+  //password = ""
+  //location = "ycz"
+  //group    = "icdc.admin"
+}
 
 resource "icdc_service_request" "new" {
   service_name = "terraform-test"

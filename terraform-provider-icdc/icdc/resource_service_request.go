@@ -14,9 +14,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
-const baseURL = "https://api.ycz.icdc.io/api/compute/v1"
-const miqGroup = "icdc.member"
-
 type ServiceRequestResource struct {
 	ServiceName         string `json:"service_name"`
 	VmMemory 					  string `json:"vm_memory"`
@@ -81,15 +78,15 @@ func resourceServiceRequestCreate (d *schema.ResourceData, m interface{}) error 
 
 	body := bytes.NewBuffer(requestBody)
 
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/service_orders/cart/service_requests/", baseURL), body)
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s/service_orders/cart/service_requests/", os.Getenv("ICDC_API_GATEWAY")), body)
 
 	if err != nil {
 		return err
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", os.Getenv("TOKEN")))
-	req.Header.Set("X_MIQ_GROUP", miqGroup)
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", os.Getenv("ICDC_TOKEN")))
+	req.Header.Set("X_MIQ_GROUP", os.Getenv("ICDC_GROUP"))
 
 	r, err := client.Do(req)
 	if err != nil {
