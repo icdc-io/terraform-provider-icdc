@@ -42,8 +42,7 @@ func Provider() *schema.Provider {
       },
     },
 		ResourcesMap: map[string]*schema.Resource{
-			"icdc_service_request": resourceServiceRequest(),
-			//"icdc_service": resourceService(),
+			"icdc_service": resourceService(),
 		},
 		DataSourcesMap: map[string]*schema.Resource{},
 		ConfigureContextFunc: providerConfigure,
