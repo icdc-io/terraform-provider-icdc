@@ -108,15 +108,15 @@ func resourceServiceCreate (d *schema.ResourceData, m interface{}) error {
 
 	body := bytes.NewBuffer(requestBody)
 
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/service_orders/cart/service_requests/", os.Getenv("ICDC_API_GATEWAY")), body)
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s/service_orders/cart/service_requests/", os.Getenv("API_GATEWAY")), body)
 
 	if err != nil {
 		return err
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", os.Getenv("ICDC_TOKEN")))
-	req.Header.Set("X_MIQ_GROUP", os.Getenv("ICDC_GROUP"))
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", os.Getenv("AUTH_TOKEN")))
+	req.Header.Set("X_MIQ_GROUP", os.Getenv("AUTH_GROUP"))
 
 	r, err := client.Do(req)
 	if err != nil {
@@ -154,7 +154,7 @@ func resourceServiceCreate (d *schema.ResourceData, m interface{}) error {
 
 		time.Sleep(10 * time.Second)
 	}
-	
+
 
 	return nil
 }
@@ -162,10 +162,10 @@ func resourceServiceCreate (d *schema.ResourceData, m interface{}) error {
 func fetchServiceId (serviceRequestId string) (string, error) {
 	client := &http.Client{Timeout: 10 * time.Second}
 
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/service_requests/%s?expand=resources&attributes=miq_request_tasks", os.Getenv("ICDC_API_GATEWAY"), serviceRequestId), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/service_requests/%s?expand=resources&attributes=miq_request_tasks", os.Getenv("API_GATEWAY"), serviceRequestId), nil)
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", os.Getenv("ICDC_TOKEN")))
-	req.Header.Set("X_MIQ_GROUP", os.Getenv("ICDC_GROUP"))
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", os.Getenv("AUTH_TOKEN")))
+	req.Header.Set("X_MIQ_GROUP", os.Getenv("AUTH_GROUP"))
 
 	r, err := client.Do(req)
 	if err != nil {
@@ -200,6 +200,44 @@ func resourceServiceUpdate(d *schema.ResourceData, m interface{}) error {
 }
 
 func resourceServiceDelete(d *schema.ResourceData, m interface{}) error {
+	client := &http.Client{Timeout: 10 * time.Second}
+
+	serviceRequest := &ServiceRequest{
+		Action: "request_retire",
+	}
+
+	requestBody, err := json.Marshal(serviceRequest)
+
+	if err != nil {
+		return err
+	}
+
+	body := bytes.NewBuffer(requestBody)
+
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s/services/%s", os.Getenv("API_GATEWAY"), d.Id()), body)
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", os.Getenv("AUTH_TOKEN")))
+	req.Header.Set("X_MIQ_GROUP", os.Getenv("AUTH_GROUP"))
+
+	r, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+
+	defer r.Body.Close()
+
+	var service *Service
+	err = json.NewDecoder(r.Body).Decode(&service)
+	if err != nil {
+		return err
+	}
+
+	d.SetId("")
+
 	return nil
 }
 

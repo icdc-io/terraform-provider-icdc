@@ -20,25 +20,31 @@ func Provider() *schema.Provider {
       "username": &schema.Schema{
         Type:        schema.TypeString,
         Required:		true,
-        DefaultFunc: schema.EnvDefaultFunc("ICDC_USERNAME", nil),
+        DefaultFunc: schema.EnvDefaultFunc("CPV_USERNAME", nil),
       },
       "password": &schema.Schema{
         Type:        schema.TypeString,
         Required:		true,
         Sensitive:   true,
-        DefaultFunc: schema.EnvDefaultFunc("ICDC_PASSWORD", nil),
+        DefaultFunc: schema.EnvDefaultFunc("CPV_PASSWORD", nil),
       },
 			"location": &schema.Schema{
         Type:        schema.TypeString,
         Required:		true,
         Sensitive:   true,
-        DefaultFunc: schema.EnvDefaultFunc("ICDC_LOCATION", nil),
+        DefaultFunc: schema.EnvDefaultFunc("CPV_LOCATION", nil),
       },
 			"group": &schema.Schema{
         Type:        schema.TypeString,
         Required:		true,
         Sensitive:   true,
-        DefaultFunc: schema.EnvDefaultFunc("ICDC_GROUP", nil),
+        DefaultFunc: schema.EnvDefaultFunc("CPV_GROUP", nil),
+      },
+			"platform": &schema.Schema{
+        Type:        schema.TypeString,
+        Required:		true,
+        Sensitive:   true,
+        DefaultFunc: schema.EnvDefaultFunc("CPV", nil),
       },
     },
 		ResourcesMap: map[string]*schema.Resource{
@@ -68,7 +74,7 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 
 	var diags diag.Diagnostics
 
-	var url = "https://login.icdc.io/auth/realms/master/protocol/openid-connect/token"
+	var url = fmt.Sprintf("https://login.%s.io/auth/realms/master/protocol/openid-connect/token", d.Get("platform").(string))
 	var buf = []byte("username=" + username + "&password=" + password + "&client_id=insights&grant_type=password")
 	var jwt JwtToken
 	resp, _ := http.Post(url, "application/x-www-form-urlencoded", bytes.NewBuffer(buf))
@@ -77,9 +83,9 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 
 	gateway_url := fmt.Sprintf("https://api.%s.icdc.io/api/compute/v1", location)
 
-	os.Setenv("ICDC_API_GATEWAY", gateway_url)
-	os.Setenv("ICDC_GROUP", group)
-	os.Setenv("ICDC_TOKEN", jwt.AccessToken)
+	os.Setenv("API_GATEWAY", gateway_url)
+	os.Setenv("AUTH_GROUP", group)
+	os.Setenv("AUTH_TOKEN", jwt.AccessToken)
 
   return nil, diags
 }
