@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strconv"
+	//"strconv"
 	"time"
 	"os"
 	"io/ioutil"
@@ -22,6 +22,92 @@ import (
 		- Need to implement error handling
 		- Need to implement logger
 */
+
+type Service struct {
+	ID  string `json:"id"`
+	Name string `json:"name"`
+	SshKey string
+	ServiceTemplateId string `json:"service_template_id"`
+	Vms [] VmParams `json:"vms"`
+			/* ahrechushkin: for sure we can fetch full information about vm we need to make 2 requests.
+				1. api/services/:ID?expand=resources&attributes=vms
+				2. api/vms/:ID?expand=resources&attributes=hardware
+				Maybe make sense a generate object with aggregated information from two endpoints.
+		*/
+}
+
+type VmParams struct {
+	ID string `json:"id"`
+	Name string `json:"name"`
+	MemoryMb string
+	CpuCores string
+	StorageType string
+	StorageMb string
+	Network string
+}
+
+func resourceService() *schema.Resource {
+	return &schema.Resource{
+		Read: resourceServiceRead,
+		Create: resourceServiceCreate,
+		Update: resourceServiceUpdate,
+		Delete: resourceServiceDelete,
+		Schema: map[string]*schema.Schema{
+			"id": &schema.Schema{
+				Type: schema.TypeString,
+				Computed: true,
+			},
+			"name": &schema.Schema{
+				Type:     schema.TypeString,
+				Required: true,
+			},
+			"vms": &schema.Schema{
+				Type:		 schema.TypeList,
+				Elem: 	 &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"id": &schema.Schema{
+							Type: schema.TypeString,
+							Computed: true,
+						},
+						"name": &schema.Schema{
+							Type:     schema.TypeString,
+							Computed: true,
+						},
+						"memory_mb": &schema.Schema{
+							Type:     schema.TypeString,
+							Required: true,
+						},
+						"cpu": &schema.Schema{
+							Type:     schema.TypeString,
+							Required: true,
+						},
+						"storage_type": &schema.Schema{
+							Type:     schema.TypeString,
+							Required: true,
+						},
+						"storage_gb": &schema.Schema{
+							Type:     schema.TypeString,
+							Required: true,
+						},
+						"network": &schema.Schema{
+							Type:     schema.TypeString,
+							Required: true,
+						},
+					},
+				},
+				Required: true,
+			},
+			"ssh_key": &schema.Schema{
+				Type:     schema.TypeString,
+				Required: true,
+			},
+			"service_template_id": &schema.Schema{
+				Type:     schema.TypeString,
+				Required: true,
+			},
+		},
+	}
+}
 
 type ServiceResources struct {
 	ServiceName         string `json:"service_name"`
@@ -40,7 +126,7 @@ type ServiceResources struct {
 }
 
 type ServiceRequest struct {
-	Action 		string 									 `json:"action"`
+	Action 		string 						 `json:"action"`
 	Resources []ServiceResources `json:"resources"`
 }
 
@@ -54,17 +140,7 @@ type ServiceRequestResponse struct {
 	} `json:"results"`
 }
 
-type Service struct {
-	ID  string `json:"id"`
-	Name string `json:"name"`
-	MemoryMb int `json:"aggregate_all_vm_memory"`
-	CpuCores int `json:"aggregate_all_vm_cpu"`
-	StorageType string
-	StorageMb int `json:"aggregate_all_vm_disk_space"`
-	Network string
-	SshKey string
-	ServiceTemplateId string
-}
+
 
 type ServiceMiqRequest struct {
 	MiqRequestTasks []struct {
@@ -78,28 +154,33 @@ type ServiceMiqRequest struct {
 func resourceServiceCreate (d *schema.ResourceData, m interface{}) error {
 	client := &http.Client{Timeout: 10 * time.Second}
 
+	vlan := fmt.Sprintf("%s (%s)", d.Get("vms.0.network").(string), d.Get("vms.0.network").(string))
+
 	service := Service{
 		Name: d.Get("name").(string),
-		MemoryMb: d.Get("memory_mb").(int),
-		CpuCores: d.Get("cpu_cores").(int),
-		StorageType: d.Get("storage_type").(string),
-		StorageMb: d.Get("storage_mb").(int),
-		Network: d.Get("network").(string),
 		SshKey: d.Get("ssh_key").(string),
 		ServiceTemplateId: d.Get("service_template_id").(string),
+		Vms: []VmParams {VmParams{
+			MemoryMb: d.Get("vms.0.memory_mb").(string),
+			CpuCores: d.Get("vms.0.cpu").(string),
+			StorageType: d.Get("vms.0.storage_type").(string),
+			StorageMb: d.Get("vms.0.storage_gb").(string),
+			Network: vlan,
+			},
+		},
 	}
 
 	serviceRequest := &ServiceRequest{
 		Action: "add",
 		Resources: []ServiceResources{ServiceResources{
 			ServiceName: service.Name,
-			VmMemory: strconv.Itoa(service.MemoryMb),
+			VmMemory: service.Vms[0].MemoryMb,
 			NumberOfSockets: "1",
-			CoresPerSocket: strconv.Itoa(service.CpuCores),
+			CoresPerSocket: service.Vms[0].CpuCores,
 			Hostname: "generated-hostname",
-			Vlan: fmt.Sprintf("%s (%s)", service.Network, service.Network),
-			SystemDiskType: service.StorageType,
-			SystemDiskSize: strconv.Itoa(service.StorageMb),
+			Vlan: service.Vms[0].Network,
+			SystemDiskType: service.Vms[0].StorageType,
+			SystemDiskSize: service.Vms[0].StorageMb,
 			AuthType: "key",
 			SshKey: service.SshKey,
 			ServiceTemplateHref: fmt.Sprintf("/api/service_templates/%s", service.ServiceTemplateId),
@@ -147,9 +228,9 @@ func resourceServiceCreate (d *schema.ResourceData, m interface{}) error {
 	*/
 
 	serviceRequestId := response.Results[0].ServiceRequestId
-
+	
 	for {
-		serviceId, err := fetchServiceId(serviceRequestId)
+		serviceId, err := fetchDestinationId(serviceRequestId, "Service")
 
 		if err != nil {
 			return err
@@ -167,7 +248,7 @@ func resourceServiceCreate (d *schema.ResourceData, m interface{}) error {
 	return nil
 }
 
-func fetchServiceId (serviceRequestId string) (string, error) {
+func fetchDestinationId (serviceRequestId string, destinationType string) (string, error) {
 	client := &http.Client{Timeout: 10 * time.Second}
 
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/service_requests/%s?expand=resources&attributes=miq_request_tasks", os.Getenv("API_GATEWAY"), serviceRequestId), nil)
@@ -191,7 +272,7 @@ func fetchServiceId (serviceRequestId string) (string, error) {
 	_ = ioutil.WriteFile("/tmp/miq_request_task_response.json", file, 0644)
 
 	for i := range response.MiqRequestTasks {
-		if response.MiqRequestTasks[i].DestinationType == "Service" {
+		if response.MiqRequestTasks[i].DestinationType == destinationType {
 			return response.MiqRequestTasks[i].DestinationId, nil
 		}
 	}
@@ -202,7 +283,7 @@ func fetchServiceId (serviceRequestId string) (string, error) {
 func resourceServiceRead(d *schema.ResourceData, m interface{}) error {
 	client := &http.Client{Timeout: 10 * time.Second}
 
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/services/%s?expand=resources&attributes=networks,miq_request,aggregate_all_vm_cpus,aggregate_all_vm_memory,aggregate_all_vm_disk_space_allocated", os.Getenv("API_GATEWAY"), d.Id()), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/services/%s?expand=resources&attributes=vms", os.Getenv("API_GATEWAY"), d.Id()), nil)
 	if err != nil {
 		return err
 	}
@@ -225,18 +306,12 @@ func resourceServiceRead(d *schema.ResourceData, m interface{}) error {
 		return err
 	}
 
-
 	file, _ := json.MarshalIndent(service, "", "  ")
-	_ = ioutil.WriteFile("/tmp/service.json", file, 0644)
+	file_name := fmt.Sprintf("/tmp/service_%s.json", d.Id())
+	_ = ioutil.WriteFile(file_name, file, 0644)
 
-
-	d.Set("name", service.Name)
-	d.Set("memory_mb", service.MemoryMb)
-	d.Set("cpu_cores", service.CpuCores)
-	d.Set("storage_mb", service.StorageMb)
-
+	d.Set("vms", service.Vms)
 	d.SetId(d.Id())
-
 	return nil
 }
 
@@ -303,51 +378,4 @@ func resourceServiceDelete(d *schema.ResourceData, m interface{}) error {
 	d.SetId("")
 
 	return nil
-}
-
-func resourceService() *schema.Resource {
-	return &schema.Resource{
-		Read: resourceServiceRead,
-		Create: resourceServiceCreate,
-		Update: resourceServiceUpdate,
-		Delete: resourceServiceDelete,
-		Schema: map[string]*schema.Schema{
-			"id": &schema.Schema{
-				Type: schema.TypeString,
-				Computed: true,
-			},
-			"name": &schema.Schema{
-				Type:     schema.TypeString,
-				Required: true,
-			},
-			"memory_mb": &schema.Schema{
-				Type:     schema.TypeString,
-				Required: true,
-			},
-			"cpu_cores": &schema.Schema{
-				Type:     schema.TypeString,
-				Required: true,
-			},
-			"storage_type": &schema.Schema{
-				Type:     schema.TypeString,
-				Required: true,
-			},
-			"storage_mb": &schema.Schema{
-				Type:     schema.TypeString,
-				Required: true,
-			},
-			"network": &schema.Schema{
-				Type:     schema.TypeString,
-				Required: true,
-			},
-			"ssh_key": &schema.Schema{
-				Type:     schema.TypeString,
-				Required: true,
-			},
-			"service_template_id": &schema.Schema{
-				Type:     schema.TypeString,
-				Required: true,
-			},
-		},
-	}
 }
