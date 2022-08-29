@@ -3,72 +3,72 @@ package icdc
 import (
 	"context"
 
-	"fmt"
-	"net/http"
-	"encoding/json"
-	"io/ioutil"
 	"bytes"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"net/http"
 	"os"
 
-  "github.com/hashicorp/terraform-plugin-sdk/v2/diag"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
 func Provider() *schema.Provider {
 	return &schema.Provider{
-    Schema: map[string]*schema.Schema{
-      "username": &schema.Schema{
-        Type:        schema.TypeString,
-        Required:		true,
-        DefaultFunc: schema.EnvDefaultFunc("CPV_USERNAME", nil),
-      },
-      "password": &schema.Schema{
-        Type:        schema.TypeString,
-        Required:		true,
-        Sensitive:   true,
-        DefaultFunc: schema.EnvDefaultFunc("CPV_PASSWORD", nil),
-      },
+		Schema: map[string]*schema.Schema{
+			"username": &schema.Schema{
+				Type:        schema.TypeString,
+				Required:    true,
+				DefaultFunc: schema.EnvDefaultFunc("CPV_USERNAME", nil),
+			},
+			"password": &schema.Schema{
+				Type:        schema.TypeString,
+				Required:    true,
+				Sensitive:   true,
+				DefaultFunc: schema.EnvDefaultFunc("CPV_PASSWORD", nil),
+			},
 			"location": &schema.Schema{
-        Type:        schema.TypeString,
-        Required:		true,
-        Sensitive:   true,
-        DefaultFunc: schema.EnvDefaultFunc("CPV_LOCATION", nil),
-      },
+				Type:        schema.TypeString,
+				Required:    true,
+				Sensitive:   true,
+				DefaultFunc: schema.EnvDefaultFunc("CPV_LOCATION", nil),
+			},
 			"group": &schema.Schema{
-        Type:        schema.TypeString,
-        Required:		true,
-        Sensitive:   true,
-        DefaultFunc: schema.EnvDefaultFunc("CPV_GROUP", nil),
-      },
+				Type:        schema.TypeString,
+				Required:    true,
+				Sensitive:   true,
+				DefaultFunc: schema.EnvDefaultFunc("CPV_GROUP", nil),
+			},
 			"platform": &schema.Schema{
-        Type:        schema.TypeString,
-        Required:		true,
-        Sensitive:   true,
-        DefaultFunc: schema.EnvDefaultFunc("CPV", nil),
-      },
-    },
+				Type:        schema.TypeString,
+				Required:    true,
+				Sensitive:   true,
+				DefaultFunc: schema.EnvDefaultFunc("CPV", nil),
+			},
+		},
 		ResourcesMap: map[string]*schema.Resource{
 			"icdc_service": resourceService(),
 		},
-		DataSourcesMap: map[string]*schema.Resource{},
+		DataSourcesMap:       map[string]*schema.Resource{},
 		ConfigureContextFunc: providerConfigure,
 	}
 }
 
 type IcdcToken struct {
 	ApiGateway string
-	Group string
-	Jwt string
+	Group      string
+	Jwt        string
 }
 
 type JwtToken struct {
-	AccessToken string `json:"access_token"`
+	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
 }
 
 func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}, diag.Diagnostics) {
- 	username := d.Get("username").(string)
-  password := d.Get("password").(string)
+	username := d.Get("username").(string)
+	password := d.Get("password").(string)
 	location := d.Get("location").(string)
 	group := d.Get("group").(string)
 
@@ -87,5 +87,5 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 	os.Setenv("AUTH_GROUP", group)
 	os.Setenv("AUTH_TOKEN", jwt.AccessToken)
 
-  return nil, diags
+	return nil, diags
 }
