@@ -332,18 +332,35 @@ func flattenVms(vmsList []VmParams) []interface{} {
 	return make([]interface{}, 0)
 }
 
-/*
 type VmReconfigureRequest struct {
-	Action string `json:"action"`
+	Action   string `json:"action"`
 	Resource struct {
-		RequestType string `json:"request_type"`
-		VmMemory int `json:"vm_memory"`
-		NumberOfCpus int `json:"number_of_cpus"`
-		NumberOfSockets int `json:"number_of_sockets"`
-		CoresPerSocket int `json:"cores_per_socket"`
+		RequestType     string `json:"request_type"`
+		VmMemory        string `json:"vm_memory"`
+		NumberOfCpus    string `json:"number_of_cpus"`
+		NumberOfSockets string `json:"number_of_sockets"`
+		CoresPerSocket  string `json:"cores_per_socket"`
 	} `json:"resource"`
 }
-*/
+
+type ServiceReconfigureRequest struct {
+	Action   string `json:"action"`
+	Resource struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+	} `json:"resource"`
+}
+
+type CustomButtonRequest struct {
+	Action   string `json:"action"`
+	Resource struct {
+		Params struct {
+			DialogNetworkProfile string `json:"dialog_network_profile"`
+		} `json:"params"`
+		Path string `json:"path"`
+		Task string `json:"task"`
+	} `json:"resource"`
+}
 
 func resourceServiceUpdate(d *schema.ResourceData, m interface{}) error {
 	/*
@@ -351,7 +368,161 @@ func resourceServiceUpdate(d *schema.ResourceData, m interface{}) error {
 			We may update only vm resource, but we don't have VM abstraction layer.
 			Service -> [VMs -> [Resources -> [VmMemory, NumberOfCpus, NumberOfSockets, CoresPerSocket]]]
 			Must be implemented in future.
+
+			service name upated by /api/services/{id} endpoint
+			all resources updated by /api/vms/{id} endpoint
 	*/
+
+	client := &http.Client{Timeout: 10 * time.Second}
+
+	if d.HasChange("name") {
+		// TODO: implement service update method
+		/*
+			POST services/18000000000388
+			BODY {
+						"action":"edit",
+						"resource": {
+							"id":"18000000000388",
+							"name":"tf-composite#5"
+						}
+					}
+		*/
+		var reconfigureRequest ServiceReconfigureRequest
+		reconfigureRequest.Action = "edit"
+		reconfigureRequest.Resource.ID = d.Id()
+		reconfigureRequest.Resource.Name = d.Get("name").(string)
+
+		requestBody, err := json.Marshal(reconfigureRequest)
+
+		if err != nil {
+			return err
+		}
+
+		body := bytes.NewBuffer(requestBody)
+		req, err := http.NewRequest("POST", fmt.Sprintf("%s/services/%s", os.Getenv("API_GATEWAY"), d.Id()), body)
+
+		if err != nil {
+			return err
+		}
+
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", os.Getenv("AUTH_TOKEN")))
+		req.Header.Set("X_MIQ_GROUP", os.Getenv("AUTH_GROUP"))
+
+		r, err := client.Do(req)
+		if err != nil {
+			return err
+		}
+
+		var response *ServiceRequestResponse
+
+		err = json.NewDecoder(r.Body).Decode(&response)
+		if err != nil {
+			return err
+		}
+	}
+
+	if d.HasChange("vms") {
+		/*
+				ahrechushkin"
+			 		CpuCores, MemoryMb updating by create reconfigure request
+					Network can update only running automation task
+					they are two different requests to update vm
+		*/
+
+		if d.HasChange("vms.0.cpu_cores") || d.HasChange("vms.0.memory_mb") {
+			var vmReconfigureRequest VmReconfigureRequest
+			vmReconfigureRequest.Action = "reconfigure"
+			vmReconfigureRequest.Resource.RequestType = "vm_reconfigure"
+			vmReconfigureRequest.Resource.VmMemory = d.Get("vms.0.memory_mb").(string)
+			vmReconfigureRequest.Resource.NumberOfCpus = d.Get("vms.0.cpu_cores").(string)
+			vmReconfigureRequest.Resource.NumberOfSockets = "1"
+			vmReconfigureRequest.Resource.CoresPerSocket = d.Get("vms.0.cpu_cores").(string)
+
+			requestBody, err := json.Marshal(vmReconfigureRequest)
+
+			if err != nil {
+				return err
+			}
+
+			body := bytes.NewBuffer(requestBody)
+
+			vmId := d.Get("vms.0.id").(string)
+			req, err := http.NewRequest("POST", fmt.Sprintf("%s/vms/%s", os.Getenv("API_GATEWAY"), vmId), body)
+
+			if err != nil {
+				return err
+			}
+
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", os.Getenv("AUTH_TOKEN")))
+			req.Header.Set("X_MIQ_GROUP", os.Getenv("AUTH_GROUP"))
+
+			r, err := client.Do(req)
+			if err != nil {
+				return err
+			}
+
+			var response *ServiceRequestResponse
+
+			err = json.NewDecoder(r.Body).Decode(&response)
+			if err != nil {
+				return err
+			}
+		}
+
+		if d.HasChange("vms.0.network") {
+			/*
+				POST: api/services/18000000000388/
+				BODY: {
+					"action":"invoke_custom_button",
+					"resource":{
+						"task":"call_automation",
+						"path":"System/Request/ChangeNetworkType",
+						"params":{
+							"dialog_network_profile":"ycz_icdc_base",
+							"new_network_name":"Base" !!! Using only for UI.
+						}
+					}
+				}
+			*/
+
+			var customButtonRequest CustomButtonRequest
+			customButtonRequest.Action = "invoke_custom_button"
+			customButtonRequest.Resource.Task = "call_automation"
+			customButtonRequest.Resource.Path = "System/Request/ChangeNetworkType"
+			customButtonRequest.Resource.Params.DialogNetworkProfile = d.Get("vms.0.network").(string)
+
+			requestBody, err := json.Marshal(customButtonRequest)
+
+			if err != nil {
+				return err
+			}
+
+			body := bytes.NewBuffer(requestBody)
+			req, err := http.NewRequest("POST", fmt.Sprintf("%s/services/%s", os.Getenv("API_GATEWAY"), d.Id()), body)
+
+			if err != nil {
+				return err
+			}
+
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", os.Getenv("AUTH_TOKEN")))
+			req.Header.Set("X_MIQ_GROUP", os.Getenv("AUTH_GROUP"))
+
+			r, err := client.Do(req)
+			if err != nil {
+				return err
+			}
+
+			var response *ServiceRequestResponse
+
+			err = json.NewDecoder(r.Body).Decode(&response)
+			if err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 
