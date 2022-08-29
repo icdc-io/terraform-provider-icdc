@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"net/http"
-	//"strconv"
 	"io/ioutil"
+	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -148,7 +148,7 @@ type ServiceMiqRequest struct {
 }
 
 func resourceServiceCreate(d *schema.ResourceData, m interface{}) error {
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := &http.Client{Timeout: 1000 * time.Second}
 
 	vlan := fmt.Sprintf("%s (%s)", d.Get("vms.0.network").(string), d.Get("vms.0.network").(string))
 
@@ -158,9 +158,9 @@ func resourceServiceCreate(d *schema.ResourceData, m interface{}) error {
 		ServiceTemplateId: d.Get("service_template_id").(string),
 		Vms: []VmParams{VmParams{
 			MemoryMb:    d.Get("vms.0.memory_mb").(string),
-			CpuCores:    d.Get("vms.0.cpu").(string),
+			CpuCores:    d.Get("vms.0.cpu_cores").(string),
 			StorageType: d.Get("vms.0.storage_type").(string),
-			StorageMb:   d.Get("vms.0.storage_gb").(string),
+			StorageMb:   d.Get("vms.0.storage_mb").(string),
 			Network:     vlan,
 		},
 		},
@@ -243,7 +243,7 @@ func resourceServiceCreate(d *schema.ResourceData, m interface{}) error {
 }
 
 func fetchDestinationId(serviceRequestId string, destinationType string) (string, error) {
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := &http.Client{Timeout: 100 * time.Second}
 
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/service_requests/%s?expand=resources&attributes=miq_request_tasks", os.Getenv("API_GATEWAY"), serviceRequestId), nil)
 	req.Header.Set("Content-Type", "application/json")
@@ -275,7 +275,7 @@ func fetchDestinationId(serviceRequestId string, destinationType string) (string
 }
 
 func resourceServiceRead(d *schema.ResourceData, m interface{}) error {
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := &http.Client{Timeout: 100 * time.Second}
 
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/services/%s?expand=resources&attributes=vms", os.Getenv("API_GATEWAY"), d.Id()), nil)
 	if err != nil {
@@ -309,19 +309,63 @@ func resourceServiceRead(d *schema.ResourceData, m interface{}) error {
 	return nil
 }
 
+type Vm struct {
+	Id       string `json:"id"`
+	Name     string `json:"name"`
+	Hardware struct {
+		MemoryMb int `json:"memory_mb"`
+		CpuCores int `json:"cpu_total_cores"`
+	} `json:"hardware"`
+	Disks []struct {
+		Id   string `json:"id"`
+		Size int    `json:"size"`
+	}
+	Network []struct {
+		Name string `json:"name"`
+	} `json:"lans"`
+}
+
 func flattenVms(vmsList []VmParams) []interface{} {
 	if vmsList != nil {
 		vms := make([]interface{}, len(vmsList))
 
 		for i, vm := range vmsList {
+
+			var remoteVm Vm
+
+			client := &http.Client{Timeout: 100 * time.Second}
+
+			req, err := http.NewRequest("GET", fmt.Sprintf("%s/vms/%s?expand=resources&attributes=hardware,disks,lans", os.Getenv("API_GATEWAY"), vm.ID), nil)
+			if err != nil {
+				return nil
+			}
+
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", os.Getenv("AUTH_TOKEN")))
+			req.Header.Set("X_MIQ_GROUP", os.Getenv("AUTH_GROUP"))
+
+			r, err := client.Do(req)
+
+			if err != nil {
+				return nil
+			}
+
+			defer r.Body.Close()
+
+			err = json.NewDecoder(r.Body).Decode(&remoteVm)
+
+			if err != nil {
+				return nil
+			}
+
 			vml := make(map[string]interface{})
-			vml["id"] = vm.ID
-			vml["name"] = vm.Name
-			vml["memory_mb"] = vm.MemoryMb
-			vml["cpu_cores"] = vm.CpuCores
-			vml["network"] = vm.Network
-			vml["storage_type"] = vm.StorageType
-			vml["storage_mb"] = vm.StorageMb
+			vml["id"] = remoteVm.Id
+			vml["name"] = remoteVm.Name
+			vml["memory_mb"] = strconv.Itoa(remoteVm.Hardware.MemoryMb)
+			vml["cpu_cores"] = strconv.Itoa(remoteVm.Hardware.CpuCores)
+			vml["network"] = remoteVm.Network[0].Name
+			vml["storage_type"] = "nvme"
+			vml["storage_mb"] = strconv.Itoa(remoteVm.Disks[0].Size / (1 << 30))
 
 			vms[i] = vml
 		}
@@ -373,7 +417,7 @@ func resourceServiceUpdate(d *schema.ResourceData, m interface{}) error {
 			all resources updated by /api/vms/{id} endpoint
 	*/
 
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := &http.Client{Timeout: 100 * time.Second}
 
 	if d.HasChange("name") {
 		// TODO: implement service update method
@@ -527,7 +571,7 @@ func resourceServiceUpdate(d *schema.ResourceData, m interface{}) error {
 }
 
 func resourceServiceDelete(d *schema.ResourceData, m interface{}) error {
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := &http.Client{Timeout: 100 * time.Second}
 
 	serviceRequest := &ServiceRequest{
 		Action: "request_retire",
