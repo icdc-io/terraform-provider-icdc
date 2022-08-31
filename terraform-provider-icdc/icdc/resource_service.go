@@ -148,7 +148,7 @@ type ServiceMiqRequest struct {
 }
 
 func resourceServiceCreate(d *schema.ResourceData, m interface{}) error {
-	client := &http.Client{Timeout: 1000 * time.Second}
+	client := &http.Client{Timeout: 100 * time.Second}
 
 	vlan := fmt.Sprintf("%s (%s)", d.Get("vms.0.network").(string), d.Get("vms.0.network").(string))
 
