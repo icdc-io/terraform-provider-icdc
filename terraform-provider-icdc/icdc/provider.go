@@ -46,9 +46,16 @@ func Provider() *schema.Provider {
 				Sensitive:   true,
 				DefaultFunc: schema.EnvDefaultFunc("CPV", nil),
 			},
+			"account": &schema.Schema{
+				Type:        schema.TypeString,
+				Required:    true,
+				Sensitive:   true,
+				DefaultFunc: schema.EnvDefaultFunc("CPV_ACCOUNT", nil),
+			},
 		},
 		ResourcesMap: map[string]*schema.Resource{
 			"icdc_service": resourceService(),
+			"icdc_subnet":  resourceSubnet(),
 		},
 		DataSourcesMap:       map[string]*schema.Resource{},
 		ConfigureContextFunc: providerConfigure,
@@ -70,6 +77,7 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 	username := d.Get("username").(string)
 	password := d.Get("password").(string)
 	location := d.Get("location").(string)
+	account := d.Get("account").(string)
 	group := d.Get("group").(string)
 
 	var diags diag.Diagnostics
@@ -86,6 +94,8 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 	os.Setenv("API_GATEWAY", gateway_url)
 	os.Setenv("AUTH_GROUP", group)
 	os.Setenv("AUTH_TOKEN", jwt.AccessToken)
+	os.Setenv("LOCATION", location)
+	os.Setenv("ACCOUNT", account)
 
 	return nil, diags
 }
