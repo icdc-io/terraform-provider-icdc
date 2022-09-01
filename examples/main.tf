@@ -8,12 +8,12 @@ terraform {
 }
 
 provider "icdc" {
-  username = "ahrechushkin@ibagroup.eu"
+  username = ""
   password = ""
-  location = "ycz"
-  account = "icdc"
-  group    = "icdc.admin"
-  platform = "icdc"
+  location = ""
+  account = ""
+  group    = ""
+  platform = ""
 }
 
 resource "icdc_subnet" "tf-vpc" {
