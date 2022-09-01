@@ -1,7 +1,7 @@
 terraform {
   required_providers {
     icdc = {
-      version = "0.1"
+      version = "1.0.0"
       source = "local.com/ahrechushkin/icdc"
     }
   }
