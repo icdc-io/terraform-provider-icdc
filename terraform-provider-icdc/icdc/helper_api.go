@@ -1,12 +1,12 @@
 package icdc
 
 import (
-	"os"
-	"fmt"
-	"time"
-	"net/http"
-	"io"
 	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"time"
 )
 
 func requestApi(method, url string, body io.Reader) (*json.Decoder, error) {
@@ -21,12 +21,12 @@ func requestApi(method, url string, body io.Reader) (*json.Decoder, error) {
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", os.Getenv("AUTH_TOKEN")))
-	req.Header.Set("X_MIQ_GROUP", fmt.Sprintf("%s.%s",os.Getenv("ACCOUNT",os.Getenv("ROLE"))
+	req.Header.Set("X_MIQ_GROUP", fmt.Sprintf("%s.%s", os.Getenv("ACCOUNT"), os.Getenv("ROLE")))
 
 	r, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
 
-		return json.NewDecoder(r.Body), nil
+	return json.NewDecoder(r.Body), nil
 }

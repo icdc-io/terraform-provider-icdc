@@ -117,9 +117,9 @@ type ChangeNetworkTypeRequest struct {
 
 // Subnet structures
 type Network struct {
-	Id      string `json:"id"`
-	Name    string `json:"name"`
-	Subnets []Subnet   `json:"cloud_subnets"`
+	Id      string   `json:"id"`
+	Name    string   `json:"name"`
+	Subnets []Subnet `json:"cloud_subnets"`
 }
 type Subnet struct {
 	Id              string   `json:"id"`

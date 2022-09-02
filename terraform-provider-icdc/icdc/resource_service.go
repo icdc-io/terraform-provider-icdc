@@ -205,7 +205,7 @@ func flattenVms(vmsList []VmParams) []interface{} {
 
 			var remoteVm Vm
 			responseBody, err := requestApi("GET", fmt.Sprintf("vms/%s?expand=resources&attributes=hardware,disks,lans", vm.ID), nil)
-			
+
 			if err != nil {
 				return nil
 			}
