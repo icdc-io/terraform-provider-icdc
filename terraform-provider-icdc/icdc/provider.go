@@ -67,7 +67,7 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 	password := d.Get("password").(string)
 	location := d.Get("location").(string)
 	account := d.Get("account").(string)
-	group := d.Get("role").(string)
+	role := d.Get("role").(string)
 
 	var diags diag.Diagnostics
 
