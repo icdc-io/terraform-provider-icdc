@@ -62,17 +62,6 @@ func Provider() *schema.Provider {
 	}
 }
 
-type IcdcToken struct {
-	ApiGateway string
-	Group      string
-	Jwt        string
-}
-
-type JwtToken struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
-}
-
 func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}, diag.Diagnostics) {
 	username := d.Get("username").(string)
 	password := d.Get("password").(string)
