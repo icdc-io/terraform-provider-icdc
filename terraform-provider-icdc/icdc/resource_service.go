@@ -12,9 +12,6 @@ import (
 
 /*
   ahrechushkin:
-		- Need to move all http requests to separate function to make code prettier.
-	  requestComputeApi(method, endpoint, body)
-		- Need to prepare generic type for non-root (service, vm, etc.) Compute objects, i mean RequestResponse, Requests...
 		- Need to find a way to pass metada in provider context (now i passed all required info in os environment vars)
 		- Need to implement error handling
 		- Need to implement logger
@@ -63,7 +60,7 @@ func resourceService() *schema.Resource {
 							Type:     schema.TypeString,
 							Required: true,
 						},
-						"network": &schema.Schema{
+						"subnet": &schema.Schema{
 							Type:     schema.TypeString,
 							Required: true,
 						},
@@ -84,7 +81,7 @@ func resourceService() *schema.Resource {
 }
 
 func resourceServiceCreate(d *schema.ResourceData, m interface{}) error {
-	vlan := fmt.Sprintf("%s (%s)", d.Get("vms.0.network").(string), d.Get("vms.0.network").(string))
+	vlan := fmt.Sprintf("%s (%s)", d.Get("vms.0.subnet").(string), d.Get("vms.0.subnet").(string))
 
 	service := Service{
 		Name:              d.Get("name").(string),
@@ -224,7 +221,7 @@ func flattenVms(vmsList []VmParams) []interface{} {
 			vml["name"] = remoteVm.Name
 			vml["memory_mb"] = strconv.Itoa(remoteVm.Hardware.MemoryMb)
 			vml["cpu_cores"] = strconv.Itoa(remoteVm.Hardware.CpuCores)
-			vml["network"] = remoteVm.Network[0].Name
+			vml["subnet"] = remoteVm.Network[0].Name
 			vml["storage_type"] = "nvme"
 			vml["storage_mb"] = strconv.Itoa(remoteVm.Disks[0].Size / (1 << 30))
 
@@ -313,7 +310,7 @@ func resourceServiceUpdate(d *schema.ResourceData, m interface{}) error {
 			}
 		}
 
-		if d.HasChange("vms.0.network") {
+		if d.HasChange("vms.0.subnet") {
 			/*
 				POST: api/services/18000000000388/
 				BODY: {
@@ -322,8 +319,8 @@ func resourceServiceUpdate(d *schema.ResourceData, m interface{}) error {
 						"task":"call_automation",
 						"path":"System/Request/ChangeNetworkType",
 						"params":{
-							"dialog_network_profile":"ycz_icdc_base",
-							"new_network_name":"Base" !!! Using only for UI.
+							"dialog_subnet_profile":"ycz_icdc_base",
+							"new_subnet_name":"Base" !!! Using only for UI.
 						}
 					}
 				}
@@ -333,7 +330,7 @@ func resourceServiceUpdate(d *schema.ResourceData, m interface{}) error {
 			customButtonRequest.Action = "invoke_custom_button"
 			customButtonRequest.Resource.Task = "call_automation"
 			customButtonRequest.Resource.Path = "System/Request/ChangeNetworkType"
-			customButtonRequest.Resource.Params.DialogNetworkProfile = d.Get("vms.0.network").(string)
+			customButtonRequest.Resource.Params.DialogNetworkProfile = d.Get("vms.0.subnet").(string)
 
 			requestBody, err := json.Marshal(customButtonRequest)
 

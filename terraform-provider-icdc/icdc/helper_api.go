@@ -21,8 +21,7 @@ func request_api(method, url string, body io.Reader) (*json.Decoder, error) {
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", os.Getenv("AUTH_TOKEN")))
-	// Make group from account and role
-	req.Header.Set("X_MIQ_GROUP", os.Getenv("AUTH_GROUP"))
+	req.Header.Set("X_MIQ_GROUP", fmt.Sprintf("%s.%s",os.Getenv("ACCOUNT",os.Getenv("ROLE"))
 
 	r, err := client.Do(req)
 	if err != nil {

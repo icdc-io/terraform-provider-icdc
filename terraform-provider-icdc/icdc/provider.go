@@ -34,17 +34,17 @@ func Provider() *schema.Provider {
 				Sensitive:   true,
 				DefaultFunc: schema.EnvDefaultFunc("CPV_LOCATION", nil),
 			},
-			"group": &schema.Schema{
+			"role": &schema.Schema{
 				Type:        schema.TypeString,
 				Required:    true,
 				Sensitive:   true,
-				DefaultFunc: schema.EnvDefaultFunc("CPV_GROUP", nil),
+				DefaultFunc: schema.EnvDefaultFunc("CPV_ROLE", nil),
 			},
 			"platform": &schema.Schema{
 				Type:        schema.TypeString,
 				Required:    true,
 				Sensitive:   true,
-				DefaultFunc: schema.EnvDefaultFunc("CPV", nil),
+				DefaultFunc: schema.EnvDefaultFunc("CPV_NAME", nil),
 			},
 			"account": &schema.Schema{
 				Type:        schema.TypeString,
@@ -67,7 +67,7 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 	password := d.Get("password").(string)
 	location := d.Get("location").(string)
 	account := d.Get("account").(string)
-	group := d.Get("group").(string)
+	group := d.Get("role").(string)
 
 	var diags diag.Diagnostics
 
@@ -81,7 +81,7 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 	gateway_url := fmt.Sprintf("https://api.%s.icdc.io/api/compute/v1", location)
 
 	os.Setenv("API_GATEWAY", gateway_url)
-	os.Setenv("AUTH_GROUP", group)
+	os.Setenv("ROLE", role)
 	os.Setenv("AUTH_TOKEN", jwt.AccessToken)
 	os.Setenv("LOCATION", location)
 	os.Setenv("ACCOUNT", account)

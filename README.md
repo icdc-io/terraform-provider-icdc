@@ -20,7 +20,7 @@
 |||cpu_cores|Count of CPU cores per vm|string|
 |||memory_mb|VM RAM size|string|
 |||storage_gb|OS disk size|string|
-|||network|Name of VM network|string|
+|||subnet|Name of VM network|string|
 |---|---|---|---|---|
 |icdc_subnet|||||
 ||**parameter**|**description**|**type**||
@@ -40,7 +40,7 @@
 |password|user password|
 |location|managed location *(mb will be moved to resources)*|
 |account|user account|
-|group|user current group *(will be removed and replaced by **role**)*|
+|role|user role|
 |platform|platform name *(icdc/scdc)*|
 
 
