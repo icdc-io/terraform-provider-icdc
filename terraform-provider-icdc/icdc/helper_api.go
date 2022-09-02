@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 )
 
-func request_api(method, url string, body io.Reader) (*json.Decoder, error) {
+func requestApi(method, url string, body io.Reader) (*json.Decoder, error) {
 
 	client := &http.Client{Timeout: 100 * time.Second}
 

@@ -123,7 +123,7 @@ func resourceServiceCreate(d *schema.ResourceData, m interface{}) error {
 	}
 
 	body := bytes.NewBuffer(requestBody)
-	responseBody, err := request_api("POST", fmt.Sprintf("service_orders/cart/service_requests/"), body)
+	responseBody, err := requestApi("POST", fmt.Sprintf("service_orders/cart/service_requests/"), body)
 
 	var serviceRequestResponse *ServiceRequestResponse
 	err = responseBody.Decode(&serviceRequestResponse)
@@ -161,7 +161,7 @@ func resourceServiceCreate(d *schema.ResourceData, m interface{}) error {
 
 func fetchDestinationId(serviceRequestId string, destinationType string) (string, error) {
 
-	responseBody, err := request_api("GET", fmt.Sprintf("service_requests/%s?expand=resources&attributes=miq_request_tasks", serviceRequestId), nil)
+	responseBody, err := requestApi("GET", fmt.Sprintf("service_requests/%s?expand=resources&attributes=miq_request_tasks", serviceRequestId), nil)
 
 	var response *ServiceMiqRequest
 
@@ -180,7 +180,7 @@ func fetchDestinationId(serviceRequestId string, destinationType string) (string
 }
 
 func resourceServiceRead(d *schema.ResourceData, m interface{}) error {
-	responseBody, err := request_api("GET", fmt.Sprintf("services/%s?expand=resources&attributes=vms", d.Id()), nil)
+	responseBody, err := requestApi("GET", fmt.Sprintf("services/%s?expand=resources&attributes=vms", d.Id()), nil)
 	var service *Service
 
 	err = responseBody.Decode(&service)
@@ -204,7 +204,7 @@ func flattenVms(vmsList []VmParams) []interface{} {
 		for i, vm := range vmsList {
 
 			var remoteVm Vm
-			responseBody, err := request_api("GET", fmt.Sprintf("vms/%s?expand=resources&attributes=hardware,disks,lans", vm.ID), nil)
+			responseBody, err := requestApi("GET", fmt.Sprintf("vms/%s?expand=resources&attributes=hardware,disks,lans", vm.ID), nil)
 			
 			if err != nil {
 				return nil
@@ -270,7 +270,7 @@ func resourceServiceUpdate(d *schema.ResourceData, m interface{}) error {
 
 		body := bytes.NewBuffer(requestBody)
 
-		_, err = request_api("POST", fmt.Sprintf("services/%s", d.Id()), body)
+		_, err = requestApi("POST", fmt.Sprintf("services/%s", d.Id()), body)
 
 		if err != nil {
 			return err
@@ -303,7 +303,7 @@ func resourceServiceUpdate(d *schema.ResourceData, m interface{}) error {
 			body := bytes.NewBuffer(requestBody)
 
 			vmId := d.Get("vms.0.id").(string)
-			_, err = request_api("POST", fmt.Sprintf("vms/%s", vmId), body)
+			_, err = requestApi("POST", fmt.Sprintf("vms/%s", vmId), body)
 
 			if err != nil {
 				return err
@@ -339,7 +339,7 @@ func resourceServiceUpdate(d *schema.ResourceData, m interface{}) error {
 			}
 
 			body := bytes.NewBuffer(requestBody)
-			_, err = request_api("POST", fmt.Sprintf("services/%s", d.Id()), body)
+			_, err = requestApi("POST", fmt.Sprintf("services/%s", d.Id()), body)
 		}
 	}
 	return nil
@@ -358,7 +358,7 @@ func resourceServiceDelete(d *schema.ResourceData, m interface{}) error {
 
 	body := bytes.NewBuffer(requestBody)
 
-	_, err = request_api("POST", fmt.Sprintf("services/%s", d.Id()), body)
+	_, err = requestApi("POST", fmt.Sprintf("services/%s", d.Id()), body)
 	d.SetId("")
 
 	return nil

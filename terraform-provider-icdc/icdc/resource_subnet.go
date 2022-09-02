@@ -69,7 +69,7 @@ func resourceSubnet() *schema.Resource {
 }
 
 func resourceSubnetRead(d *schema.ResourceData, m interface{}) error {
-	responseBody, err := request_api("GET", fmt.Sprintf("cloud_subnets/%s?expand=resources", d.Id()), nil)
+	responseBody, err := requestApi("GET", fmt.Sprintf("cloud_subnets/%s?expand=resources", d.Id()), nil)
 
 	if err != nil {
 		return err
@@ -99,7 +99,7 @@ func resourceSubnetRead(d *schema.ResourceData, m interface{}) error {
 
 func resourceSubnetCreate(d *schema.ResourceData, m interface{}) error {
 	var emsProvider *EmsProvider
-	responseBody, err := request_api("GET", fmt.Sprintf("providers?expand=resources&filter[]=type=ManageIQ::Providers::Redhat::NetworkManager"), nil)
+	responseBody, err := requestApi("GET", fmt.Sprintf("providers?expand=resources&filter[]=type=ManageIQ::Providers::Redhat::NetworkManager"), nil)
 
 	if err != nil {
 		return err
@@ -151,7 +151,7 @@ func resourceSubnetCreate(d *schema.ResourceData, m interface{}) error {
 
 	var response *ServiceRequestResponse
 
-	responseBody, err = request_api("POST", fmt.Sprintf("providers/%s/cloud_networks", emsProviderId), body)
+	responseBody, err = requestApi("POST", fmt.Sprintf("providers/%s/cloud_networks", emsProviderId), body)
 
 	err = responseBody.Decode(&response)
 	if err != nil {
@@ -160,7 +160,7 @@ func resourceSubnetCreate(d *schema.ResourceData, m interface{}) error {
 
 	var networkCollection *NetworkCollection
 
-	responseBody, err = request_api("GET", fmt.Sprintf("cloud_networks?expand=resources&attributes=cloud_subnets"), nil)
+	responseBody, err = requestApi("GET", fmt.Sprintf("cloud_networks?expand=resources&attributes=cloud_subnets"), nil)
 	err = responseBody.Decode(&networkCollection)
 
 	time.Sleep(25 * time.Second)
@@ -191,7 +191,7 @@ func resourceSubnetDelete(d *schema.ResourceData, m interface{}) error {
 	requestBody, err := json.Marshal(deleteNetworkRequest)
 	body := bytes.NewBuffer(requestBody)
 
-	_, err = request_api("POST", fmt.Sprintf("providers/%s/cloud_networks", d.Get("ems_id").(string)), body)
+	_, err = requestApi("POST", fmt.Sprintf("providers/%s/cloud_networks", d.Get("ems_id").(string)), body)
 
 	if err != nil {
 		return err
