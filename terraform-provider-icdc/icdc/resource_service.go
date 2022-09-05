@@ -130,9 +130,14 @@ func resourceServiceCreate(d *schema.ResourceData, m interface{}) error {
 	}
 
 	body := bytes.NewBuffer(requestBody)
-	responseBody, err := requestApi("POST", fmt.Sprintf("service_orders/cart/service_requests/"), body)
+	responseBody, err := requestApi("POST", "service_orders/cart/service_requests/", body)
+
+	if err != nil {
+		return err
+	}
 
 	var serviceRequestResponse *ServiceRequestResponse
+
 	err = responseBody.Decode(&serviceRequestResponse)
 
 	if err != nil {
@@ -357,6 +362,11 @@ func resourceServiceUpdate(d *schema.ResourceData, m interface{}) error {
 
 			body := bytes.NewBuffer(requestBody)
 			_, err = requestApi("POST", fmt.Sprintf("services/%s", d.Id()), body)
+
+			if err != nil {
+				return err
+			}
+
 		}
 	}
 	return nil
@@ -376,6 +386,11 @@ func resourceServiceDelete(d *schema.ResourceData, m interface{}) error {
 	body := bytes.NewBuffer(requestBody)
 
 	_, err = requestApi("POST", fmt.Sprintf("services/%s", d.Id()), body)
+
+	if err != nil {
+		return err
+	}
+
 	d.SetId("")
 
 	return nil

@@ -6,7 +6,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 
@@ -75,8 +75,10 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 	var buf = []byte("username=" + username + "&password=" + password + "&client_id=insights&grant_type=password")
 	var jwt JwtToken
 	resp, _ := http.Post(url, "application/x-www-form-urlencoded", bytes.NewBuffer(buf))
-	body, _ := ioutil.ReadAll(resp.Body)
+	body, _ := io.ReadAll(resp.Body)
 	err := json.Unmarshal([]byte(body), &jwt)
+
+	defer resp.Body.Close()
 
 	if err != nil {
 		return nil, diags
