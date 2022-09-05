@@ -12,7 +12,7 @@ provider "icdc" {
   password = ""
   location = ""
   account = ""
-  group    = ""
+  role = ""
   platform = ""
 }
 
@@ -34,7 +34,7 @@ resource "icdc_service" "composite-resource" {
     memory_mb = "8192"
     storage_type = "nvme"
     storage_mb = "30"
-    network = "ycz_icdc_base"
+    subnet = "ycz_icdc_base"
   }
 }
 
@@ -47,7 +47,7 @@ resource "icdc_service" "api-1" {
     memory_mb = "4096"
     storage_type = "nvme"
     storage_mb = "30"
-    network = "ycz_icdc_base"
+    subnet = "ycz_icdc_base"
   }
 }
 
@@ -60,6 +60,6 @@ resource "icdc_service" "db-1" {
     memory_mb = "2048"
     storage_type = "nvme"
     storage_mb = "30"
-    network = "ycz_icdc_base"
+    subnet = "ycz_icdc_base"
   }
 }
