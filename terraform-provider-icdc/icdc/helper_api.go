@@ -28,5 +28,10 @@ func requestApi(method, url string, body io.Reader) (*json.Decoder, error) {
 		return nil, err
 	}
 
-	return json.NewDecoder(r.Body), nil
+	decodedBody := json.NewDecoder(r.Body)
+
+	/* ahrechushkin: so, we need to close the body, but we can't do it here, because we need to return the body to the caller
+	defer r.Body.Close()
+	*/
+	return decodedBody, nil
 }
