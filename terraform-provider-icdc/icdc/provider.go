@@ -54,8 +54,9 @@ func Provider() *schema.Provider {
 			},
 		},
 		ResourcesMap: map[string]*schema.Resource{
-			"icdc_service": resourceService(),
-			"icdc_subnet":  resourceSubnet(),
+			"icdc_service":  resourceService(),
+			"icdc_subnet":   resourceSubnet(),
+			"icdc_firewall": resourceFirewall(),
 		},
 		DataSourcesMap:       map[string]*schema.Resource{},
 		ConfigureContextFunc: providerConfigure,

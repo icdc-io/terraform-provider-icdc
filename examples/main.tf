@@ -63,3 +63,17 @@ resource "icdc_service" "db-1" {
     subnet = "ycz_icdc_base"
   }
 }
+
+resource "icdc_firewall" "myfw-1" {
+  name = "myfw"
+  rule {
+    direction = "inbound"
+    network_protocol = "IPV4"
+    port = 22
+  }
+  rule {
+    direction = "inbound"
+    network_protocol = "IPV4"
+    port = 3000
+  }
+}
