@@ -64,6 +64,13 @@ func resourceService() *schema.Resource {
 							Type:     schema.TypeString,
 							Required: true,
 						},
+						"ipaddresses": &schema.Schema{
+							Type:     schema.TypeList,
+							Computed: true,
+							Elem: &schema.Schema{
+								Type: schema.TypeString,
+							},
+						},
 					},
 				},
 				Required: true,
@@ -189,7 +196,7 @@ func resourceServiceRead(d *schema.ResourceData, m interface{}) error {
 	if err != nil {
 		return err
 	}
-	
+
 	var service *Service
 
 	err = responseBody.Decode(&service)
@@ -213,7 +220,7 @@ func flattenVms(vmsList []VmParams) []interface{} {
 		for i, vm := range vmsList {
 
 			var remoteVm Vm
-			responseBody, err := requestApi("GET", fmt.Sprintf("vms/%s?expand=resources&attributes=hardware,disks,lans", vm.ID), nil)
+			responseBody, err := requestApi("GET", fmt.Sprintf("vms/%s?expand=resources&attributes=hardware,disks,lans,ipaddresses", vm.ID), nil)
 
 			if err != nil {
 				return nil
@@ -233,6 +240,7 @@ func flattenVms(vmsList []VmParams) []interface{} {
 			vml["subnet"] = remoteVm.Network[0].Name
 			vml["storage_type"] = "nvme"
 			vml["storage_mb"] = strconv.Itoa(remoteVm.Disks[0].Size / (1 << 30))
+			vml["ipaddresses"] = remoteVm.Ipaddresses
 
 			vms[i] = vml
 		}

@@ -79,7 +79,7 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 	err := json.Unmarshal([]byte(body), &jwt)
 
 	if err != nil {
-		return err
+		return nil, diags
 	}
 
 	gateway_url := fmt.Sprintf("https://api.%s.icdc.io/api/compute/v1", location)

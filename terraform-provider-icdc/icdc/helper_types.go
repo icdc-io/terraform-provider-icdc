@@ -83,6 +83,7 @@ type Vm struct {
 	Network []struct {
 		Name string `json:"name"`
 	} `json:"lans"`
+	Ipaddresses []string `json:"ipaddresses"`
 }
 
 type VmReconfigureRequest struct {
