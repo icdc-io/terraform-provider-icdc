@@ -64,15 +64,13 @@ resource "icdc_service" "db-1" {
   }
 }
 
-resource "icdc_firewall" "myfw-1" {
+resource "icdc_security_group" "myfw-1" {
   name = "myfw"
-  rule {
-    direction = "inbound"
+  egress {
     network_protocol = "IPV4"
     port = 22
   }
-  rule {
-    direction = "inbound"
+  ingress {
     network_protocol = "IPV4"
     port = 3000
   }
