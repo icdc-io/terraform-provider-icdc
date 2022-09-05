@@ -76,7 +76,11 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 	var jwt JwtToken
 	resp, _ := http.Post(url, "application/x-www-form-urlencoded", bytes.NewBuffer(buf))
 	body, _ := ioutil.ReadAll(resp.Body)
-	json.Unmarshal([]byte(body), &jwt)
+	err := json.Unmarshal([]byte(body), &jwt)
+
+	if err != nil {
+		return err
+	}
 
 	gateway_url := fmt.Sprintf("https://api.%s.icdc.io/api/compute/v1", location)
 

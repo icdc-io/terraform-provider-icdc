@@ -163,6 +163,10 @@ func fetchDestinationId(serviceRequestId string, destinationType string) (string
 
 	responseBody, err := requestApi("GET", fmt.Sprintf("service_requests/%s?expand=resources&attributes=miq_request_tasks", serviceRequestId), nil)
 
+	if err != nil {
+		return "", err
+	}
+
 	var response *ServiceMiqRequest
 
 	err = responseBody.Decode(&response)
@@ -181,6 +185,11 @@ func fetchDestinationId(serviceRequestId string, destinationType string) (string
 
 func resourceServiceRead(d *schema.ResourceData, m interface{}) error {
 	responseBody, err := requestApi("GET", fmt.Sprintf("services/%s?expand=resources&attributes=vms", d.Id()), nil)
+
+	if err != nil {
+		return err
+	}
+	
 	var service *Service
 
 	err = responseBody.Decode(&service)
