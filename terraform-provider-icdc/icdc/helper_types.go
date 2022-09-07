@@ -154,6 +154,48 @@ type CloudNetworkRequest struct {
 	Subnet SubnetCreateBody `json:"subnet"`
 }
 
+// Security groups structures
+type SecurityGroupCollection struct {
+	Resources []SecurityGroup `json:"resources"`
+}
+
+type SecurityGroup struct {
+	Id            string `json:"id"`
+	EmsRef        string `json:"ems_ref"`
+	Name          string `json:"name"`
+	FirewallRules []struct {
+		Id                    string `json:"id"`
+		EmsRef                string `json:"ems_ref"`
+		Direction             string `json:"direction"`
+		NetworkProtocol       string `json:"network_protocol"`
+		Port                  int    `json:"port"`
+		SourceIpRange         string `json:"source_ip_range"`
+		SourceSecurityGroupId string `json:"source_security_group_id"`
+	} `json:"firewall_rules"`
+}
+
+type SecurityGroupCreateRequest struct {
+	Action string `json:"action"`
+	Name   string `json:"name"`
+}
+
+type SecurityGroupTaskResult struct {
+	TaskResults struct {
+		SecurityGroups SecurityGroupResource `json:"security_groups"`
+	} `json:"task_results"`
+}
+
+type SecurityGroupResource struct {
+	EmsRef string `json:"id"`
+	Name   string `json:"name"`
+}
+
+type SecurityGroupDeleteRequest struct {
+	Action string `json:"action"`
+	Id     string `json:"id"`
+	Name   string `json:"name"`
+}
+
 // General structures
 type EmsProvider struct {
 	Resources []struct {
@@ -164,4 +206,13 @@ type EmsProvider struct {
 type DeleteRequest struct {
 	Action string `json:"action"`
 	Id     string `json:"id"`
+}
+
+type TaskResponse struct {
+	Results []struct {
+		Success  bool   `json:"success"`
+		Message  string `json:"message"`
+		TaskId   string `json:"task_id"`
+		TaskHref string `json:"task_href"`
+	} `json:"results"`
 }
