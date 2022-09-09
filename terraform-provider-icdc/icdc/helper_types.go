@@ -181,7 +181,7 @@ type SecurityGroupCreateRequest struct {
 
 type SecurityGroupTaskResult struct {
 	TaskResults struct {
-		SecurityGroups SecurityGroupResource `json:"security_groups"`
+		SecurityGroups SecurityGroupResource `json:"security_group"`
 	} `json:"task_results"`
 }
 

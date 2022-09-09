@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"time"
+	"log"
 )
 
 func resourceSecurityGroup() *schema.Resource {
@@ -159,10 +160,12 @@ func resourceSecurityGroupCreate(d *schema.ResourceData, m interface{}) error {
 		return err
 	}
 
+	log.Println(taskResponse)
+
 	if !taskResponse.Results[0].Success {
 		return fmt.Errorf("Error creating security group: %s", taskResponse.Results[0].Message)
 	}
-
+ 
 	taskId := taskResponse.Results[0].TaskId
 
 	// Wait for task to complete
@@ -178,6 +181,8 @@ func resourceSecurityGroupCreate(d *schema.ResourceData, m interface{}) error {
 
 	err = taskResultResponse.Decode(&securityGroupTaskResult)
 
+	log.Println(securityGroupTaskResult)
+
 	if err != nil {
 		return err
 	}
@@ -186,7 +191,8 @@ func resourceSecurityGroupCreate(d *schema.ResourceData, m interface{}) error {
 
 	// Wait for completely ems refreshing
 
-	time.Sleep(30 * time.Second)
+	//time.Sleep(45 * time.Second)
+
 	securityGroupCollectionResponse, err := requestApi("GET", fmt.Sprintf("security_groups?expand=resources&filter[]=ems_ref=%s&attributes=firewall_rules", securityGroupEmsRef), nil)
 
 	if err != nil {
@@ -197,11 +203,13 @@ func resourceSecurityGroupCreate(d *schema.ResourceData, m interface{}) error {
 
 	err = securityGroupCollectionResponse.Decode(&securityGroupCollection)
 
+	log.Println(securityGroupCollection)
+
 	if err != nil {
 		return err
 	}
 
-	err = d.Set("Name", securityGroupCollection.Resources[0].Name)
+	//err = d.Set("Name", securityGroupCollection.Resources[0].Name)
 
 	if err != nil {
 		return err
