@@ -16,15 +16,6 @@ provider "icdc" {
   platform = ""
 }
 
-resource "icdc_subnet" "tf-vpc" {
-  name = "tf-4"
-  cidr = "10.20.16.0/24"
-  network_protocol = "ipv4"
-  ip_version = 4
-  gateway = "10.16.16.1"
-  dns_nameservers = ["8.8.8.8"]
-}
-
 resource "icdc_service" "composite-resource" {
   name = "tf-resource"
   service_template_id = "18000000000035"
@@ -64,14 +55,6 @@ resource "icdc_service" "db-1" {
   }
 }
 
-resource "icdc_security_group" "myfw-1" {
+resource "icdc_security_group" "myfw" {
   name = "myfw"
-  egress {
-    network_protocol = "IPV4"
-    port = 22
-  }
-  ingress {
-    network_protocol = "IPV4"
-    port = 3000
-  }
 }

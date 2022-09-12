@@ -160,18 +160,9 @@ type SecurityGroupCollection struct {
 }
 
 type SecurityGroup struct {
-	Id            string `json:"id"`
-	EmsRef        string `json:"ems_ref"`
-	Name          string `json:"name"`
-	FirewallRules []struct {
-		Id                    string `json:"id"`
-		EmsRef                string `json:"ems_ref"`
-		Direction             string `json:"direction"`
-		NetworkProtocol       string `json:"network_protocol"`
-		Port                  int    `json:"port"`
-		SourceIpRange         string `json:"source_ip_range"`
-		SourceSecurityGroupId string `json:"source_security_group_id"`
-	} `json:"firewall_rules"`
+	Id     string `json:"id"`
+	EmsRef string `json:"ems_ref"`
+	Name   string `json:"name"`
 }
 
 type SecurityGroupCreateRequest struct {
