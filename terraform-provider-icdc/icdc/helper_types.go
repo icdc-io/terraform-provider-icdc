@@ -187,6 +187,38 @@ type SecurityGroupDeleteRequest struct {
 	Name   string `json:"name"`
 }
 
+// Security group rules structures
+type AddSecurityGroupRule struct {
+	Action          string `json:"action"`
+	Direction       string `json:"direction"`
+	NetworkProtocol string `json:"network_protocol"`
+	PortRangeMin    string `json:"port_range_min"`
+	PortRangeMax    string `json:"port_range_max"`
+	Protocol        string `json:"protocol"`
+	RemoteGroupId   string `json:"remote_group_id"`
+	SecurityGroupId string `json:"security_group_id"`
+	SourceIpRange   string `json:"source_ip_range"`
+}
+
+type SecurityGroupRule struct {
+	Id              string `json:"id"`
+	EmsRef          string `json:"ems_ref"`
+	Direction       string `json:"direction"`
+	NetworkProtocol string `json:"network_protocol"`
+	PortRangeMin    string `json:"port_range_min"`
+	PortRangeMax    string `json:"port_range_max"`
+	Protocol        string `json:"host_protocol"`
+	RemoteGroupId   string `json:"remote_group_id"`
+	SecurityGroupId string `json:"security_group_id"`
+	SourceIpRange   string `json:"source_ip_range"`
+	ResourceId      string `json:"resource_id"`
+	ResourceType    string `json:"resource_type"`
+}
+
+type SecurityGroupRulesCollection struct {
+	Rules []SecurityGroupRule `json:"firewall_rules"`
+}
+
 // General structures
 type EmsProvider struct {
 	Resources []struct {

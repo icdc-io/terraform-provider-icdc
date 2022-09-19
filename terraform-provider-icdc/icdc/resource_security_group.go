@@ -68,6 +68,7 @@ func resourceSecurityGroupCreate(d *schema.ResourceData, m interface{}) error {
 	if err != nil {
 		return err
 	}
+	var emsProvider *EmsProvider
 
 	err = responseBody.Decode(&emsProvider)
 
@@ -199,6 +200,8 @@ func resourceSecurityGroupDelete(d *schema.ResourceData, m interface{}) error {
 	if err != nil {
 		return err
 	}
+
+	d.SetId("")
 
 	return nil
 }
