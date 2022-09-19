@@ -6,6 +6,8 @@
 ||**Name**|**Internal name**|**Description**|**Documentation link**|
 |1.|Service|icdc_service|Service - abstract entity which includes inside - virtual machine, network port, backups, schedules, accesses|https://help.icdc.io/compute/en/Use_of_the_Services/index.html|
 |2.|Subnet|icdc_subnet| Fully isolated subnet which allow to assign virtual machines network ports|https://help.icdc.io/networking/en/VPC_Networks.html|
+|3.|Security group|icdc_security_group|OVN security group, allow to enable/disable incoming/upcoming trafic|
+|4.|Security group rule|icdc_security_group_rule| A security group rules|
 
 ## Resources description
 ||||||
@@ -30,6 +32,20 @@
 ||ip_version|IP version *(will be removed in future)*|int||
 ||gateway|Address of subnet gateway|string||
 ||dns_nameservers|List of dns nameservers|list of strings||
+|icdc_security_group|||||
+||**parameter**|**description**|**type**||
+||name|Security group name|string||
+|icdc_security_group_rule|||||
+||**parameter**|**description**|**type**||
+||resource_id|security group id (database)|string||
+||security_group_id|security group ems_ref|string||
+||direction|trafik direction (ingress/egress)|string||
+||protocol|TCP/UDP/Any|string||
+||network_protocol|network protocol IPV4/IPV6|string||
+||port|start_port value|string||
+||end_port|end_port_value|string||
+||source_ip_range|source ip range|string||
+||
 
 ## Provider parameters
 
