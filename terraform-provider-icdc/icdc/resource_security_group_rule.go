@@ -249,5 +249,30 @@ func resourceSecurityGroupRuleUpdate(d *schema.ResourceData, m interface{}) erro
 }
 
 func resourceSecurityGroupRuleDelete(d *schema.ResourceData, m interface{}) error {
+
+	/*
+		{"action":"remove_firewall_rule","id":"3d88adc1-04c0-451f-9bb9-f9596a8e91fc"}
+	*/
+	deleteSecurityGroupRule := &DeleteRequest{
+		Action: "remove_firewall_rule",
+		Id:     d.Get("ems_ref").(string),
+	}
+
+	requestBody, err := json.Marshal(deleteSecurityGroupRule)
+
+	if err != nil {
+		return err
+	}
+
+	body := bytes.NewBuffer(requestBody)
+
+	_, err = requestApi("POST", fmt.Sprintf("security_groups/%s", d.Get("resource_id").(string)), body)
+
+	if err != nil {
+		return err
+	}
+
+	d.SetId("")
+
 	return nil
 }
