@@ -90,6 +90,25 @@ type ServiceMiqRequest struct {
 	} `json:"miq_request_tasks"`
 }
 
+
+type TagsResponse struct {
+	Name string `json:"name"`
+	Resources []struct {
+		Name string `json:"name"`
+	} `json:"resources"`
+}
+
+type ServiceVmProvisonResponse struct {
+	Id 						 string `json:"id"`
+	Name 					 string `json:"name"`
+	LifecycleState string `json:"lifecycle_state"`
+	Vms []struct {
+		Href string `json:"href"`
+		Id 	 string `json:"id"`
+		Name string `json:"name"`
+	} `json:"vms"`
+}
+
 type Vm struct {
 	Id       string `json:"id"`
 	Name     string `json:"name"`
