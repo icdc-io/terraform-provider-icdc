@@ -304,3 +304,10 @@ type TaskResponse struct {
 		TaskHref string `json:"task_href"`
 	} `json:"results"`
 }
+
+// Response structures
+type ReconfigurationResponse struct {
+	Success bool 	 `json:"success"`
+	Message string `json:"message"`
+	Href 		string `json:"href"`
+}
