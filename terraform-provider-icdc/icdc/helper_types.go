@@ -56,8 +56,11 @@ type ServiceResources struct {
 	CoresPerSocket      string `json:"cores_per_socket"`
 	Hostname            string `json:"hostname"`
 	Vlan                string `json:"vlan"`
-	SystemDiskType      string `json:"system_disk_type"`
-	SystemDiskSize      string `json:"system_disk_size"`
+	SystemDiskType 			string `json:"system_disk_type"`
+	SystemDiskSize   		string `json:"system_disk_size"`
+	AdditionalDisk			string `json:"additional_disk"`
+	AdditionalDiskType 	string `json:"additional_disk_type"`
+	AdditionalDiskSize  string `json:"additional_disk_size"`
 	AuthType            string `json:"auth_type"`
 	Adminpassword       string `json:"adminpassword"`
 	SshKey              string `json:"ssh_key"`
