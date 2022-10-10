@@ -22,13 +22,31 @@ type Service struct {
 }
 
 type VmParams struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	MemoryMb    string `json:"memory_mb"`
-	CpuCores    string `json:"cpu_cores"`
-	StorageType string `json:"storage_type"`
-	StorageMb   string `json:"storage_mb"`
-	Network     string `json:"network"`
+	ID          			 string `json:"id"`
+	Name        			 string `json:"name"`
+	MemoryMb     			 string `json:"memory_mb"`
+	CpuCores    			 string `json:"cpu_cores"`
+	SystemDiskType 		 string `json:"system_disk_type"`
+	SystemDiskSize   	 string `json:"system_disk_size"`
+	// mb change
+	AdditionalDisk 		 string `json:"additional_disk"`
+	AdditionalDiskType string `json:"additional_disk_type"`
+	AdditionalDiskSize string `json:"additional_disk_size"`
+	Network     			 string `json:"network"`
+}
+
+type VmParamsForRead struct {
+	ID          			 string `json:"id"`
+	Name        			 string `json:"name"`
+	MemoryMb     			 string `json:"memory_mb"`
+	CpuCores    			 string `json:"cpu_cores"`
+	SystemDiskType 		 string `json:"system_disk_type"`
+	SystemDiskSize   	 string `json:"system_disk_size"`
+	AdditionalDisk []struct {
+		AdditionalDiskType string `json:"additional_disk_type"`
+		AdditionalDiskSize string `json:"additional_disk_size"`
+	} `json:"additional_disk"`
+	Subnet     			 	 string `json:"network"`
 }
 
 type ServiceResources struct {
