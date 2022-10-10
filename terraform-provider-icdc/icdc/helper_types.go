@@ -117,9 +117,10 @@ type Vm struct {
 		CpuCores int `json:"cpu_total_cores"`
 	} `json:"hardware"`
 	Disks []struct {
-		Id   string `json:"id"`
-		Size int    `json:"size"`
-	}
+		Id   		 string `json:"id"`
+		Size 		 int    `json:"size"`
+		Filename string `json:"filename"`
+	} `json:"disks"`
 	Network []struct {
 		Name string `json:"name"`
 	} `json:"lans"`
