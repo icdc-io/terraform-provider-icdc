@@ -21,7 +21,8 @@
 |||**parameter**|**description**|**type**||
 |||cpu_cores|Count of CPU cores per vm|string||
 |||memory_mb|VM RAM size|string||
-|||storage_gb|OS disk size|string||
+|||system_disk_type|OS disk type|string||
+|||system_disk_size|OS disk size|string||
 |||subnet|Name of VM network|string||
 |||additional_disk|A list of additional_disks **(optional)** |list||
 ||||**parameter**|**description**|**type**|
