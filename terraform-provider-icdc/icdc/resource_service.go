@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/r3labs/diff/v3"
 )
 
@@ -113,6 +114,9 @@ func resourceService() *schema.Resource {
 				Required: true,
 			},
 		},
+		Timeouts: &schema.ResourceTimeout{
+			Create: schema.DefaultTimeout(20 * time.Minute),
+		},
 	}
 }
 
@@ -138,18 +142,9 @@ func resourceServiceCreate(d *schema.ResourceData, m interface{}) error {
 		if containsTag(tags, tfDiskType) && (d.Get("vms.0.additional_disk.0.additional_disk_size") != "") {
 			additional_disk = "t"
 		} else {
-			// return error
-			// d.Timeout(schema.TimeoutCreate))
-			// o, n := d.GetChange("tags_all")
-			// return fmt.Errorf("error creating Backup Plan: %w", err)
-			// err := resource.Retry(2*time.Minute, func() *resource.RetryError {
-			// return diag.Errorf("error waiting for EC2 Network Insights Analysis (%s) create: %s", d.Id(), err)
 			return fmt.Errorf("error: unsupported additional disk type")
 		}
 	}
-	
-	log.Println(additional_disk)
-	//panic("1111111111")
 
 	service := Service{
 		Name:              d.Get("name").(string),
@@ -219,58 +214,51 @@ func resourceServiceCreate(d *schema.ResourceData, m interface{}) error {
 
 	serviceRequestId := serviceRequestResponse.Results[0].ServiceRequestId
 	var serviceId string
-	
-	// ToDo: read about timeouts
-	// infinite loop in case of error? set time (2 minutes?)
-	currentTime := time.Now()
-	requiredTime := currentTime.Add(time.Minute * 2)
-	for {
+
+	err = resource.Retry(d.Timeout(schema.TimeoutCreate), func() *resource.RetryError {
 		serviceId, err = fetchDestinationId(serviceRequestId, "Service")
 		if err != nil {
-			return err
+			return resource.NonRetryableError(err)
 		}
 
 		if serviceId != "" {
-			d.SetId(serviceId)
-			break
+			return nil
 		}
 
-		if currentTime.After(requiredTime) {
-			return fmt.Errorf("error: service creation time is out")
-		}
+		return resource.RetryableError(fmt.Errorf("error: service is not created"))
+	})
 
-		currentTime = currentTime.Add(10 * time.Second)
-		time.Sleep(10 * time.Second)
+	if err != nil {
+		return err
 	}
 
-	log.Println("Service Created")
-	// make loop for checking ~ 10 min for vm full creation
-	// read terraform aws documentation
+	d.SetId(serviceId)
+	log.Println("Service", serviceId, "Created")
 
-	// checking for vm creating (20 min) - too long
-	currentTime = time.Now()
-	requiredTime = currentTime.Add(time.Minute * 20)
-	for {
-		vmsId, err := fetchDestinationVm(serviceId)
+	var vmId string
+
+	err = resource.Retry(d.Timeout(schema.TimeoutCreate), func() *resource.RetryError {
+		vmId, err = fetchDestinationVm(serviceId)
 		if err != nil {
-			return fmt.Errorf("error vm fetch destination: %w", err)
+			return resource.NonRetryableError(err)
 		}
 
-		if vmsId != "" {
-			d.Set("vms.0.id", vmsId)
-			break
+		if vmId != "" {
+			return nil
 		}
 
-		if currentTime.After(requiredTime) {
-			return fmt.Errorf("error: vm creation time out")
-		}
+		return resource.RetryableError(fmt.Errorf("error: service vm is not created"))
+	})
 
-		currentTime = currentTime.Add(30 * time.Second)
-		time.Sleep(30 * time.Second)
+	if err != nil {
+		// maybe retire service?
+		return err
 	}
-	log.Println("Service Vm Created")
 
-	// ToDo: make read
+	d.Set("vms.0.id", vmId)
+	log.Println("Service Vm", vmId, "Created")
+
+	// ToDo: make read or update
 	return nil
 }
 
@@ -552,9 +540,8 @@ func resourceServiceUpdate(d *schema.ResourceData, m interface{}) error {
 			// ToDo: think about union of vm resources and disks configuration
 		 	/*
 			  	artemsafonau" IT MUST BE REFACTORED
-					need to use typeset because of order of disks?
+					need to use TypeSet because of order of disks?
 					update disks is unstable because of kafka queue
-					maybe need to make TypeSet but it will be in FUTURE
 			  	change storage type logic in future version
 					is it needed to wait for changes applyed?
 		 	*/
