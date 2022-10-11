@@ -590,7 +590,7 @@ func resourceServiceUpdate(d *schema.ResourceData, m interface{}) error {
 				return fmt.Errorf("error decoding tags response: %w", err)
 			}
 
-			// add vars for getting unique path
+			// add vars for getting unique path for update
 			var existing_paths = make(map[string]bool)
 			var paths = []string{}
 
@@ -632,7 +632,7 @@ func resourceServiceUpdate(d *schema.ResourceData, m interface{}) error {
 						StorageType: diskType,
 						Name: "",
 						Type: fmt.Sprintf("/managed/storage_type/%s", diskType),
-						DiskSizeInMb: strconv.Itoa(intDiskSize * (1 << 10)),
+						DiskSizeInMb: intDiskSize * (1 << 10),
 					}
 
 					additionalDiskRequest.Resource.DiskAdd = append(additionalDiskRequest.Resource.DiskAdd, diskAdd)
@@ -657,7 +657,7 @@ func resourceServiceUpdate(d *schema.ResourceData, m interface{}) error {
 				}
 			}
 
-			// for disks that need to be updated ToDo: or smth like this wait for disk creation and call read
+			// ToDo: wait for changes applyed or not?
 			// ToDo: make functions to add/remove disks
 			for _, path := range reverse(paths) {
 				index, err := strconv.Atoi(path)
@@ -677,7 +677,7 @@ func resourceServiceUpdate(d *schema.ResourceData, m interface{}) error {
 				}
 				additionalDiskRequest.Resource.DiskRemove = append([]DiskRemove{diskRemove}, additionalDiskRequest.Resource.DiskRemove...)
 
-				// check for simplest type convertion
+				// ToDo: check for simplest type convertion
 				strDiskSize, ok := new["additional_disk_size"].(string)
 				if !ok {
 					return fmt.Errorf("can not read additional disk size")
@@ -699,7 +699,7 @@ func resourceServiceUpdate(d *schema.ResourceData, m interface{}) error {
 					StorageType: diskType,
 					Name: "",
 					Type: fmt.Sprintf("/managed/storage_type/%s", diskType),
-					DiskSizeInMb: strconv.Itoa(intDiskSize * (1 << 10)),
+					DiskSizeInMb: intDiskSize * (1 << 10),
 				}
 				additionalDiskRequest.Resource.DiskAdd = append([]DiskAdd{diskAdd}, additionalDiskRequest.Resource.DiskAdd...)
 			}

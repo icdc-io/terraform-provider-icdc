@@ -139,7 +139,7 @@ type VmReconfigureRequest struct {
 }
 
 type DiskAdd struct {
-	DiskSizeInMb string `json:"disk_size_in_mb"`
+	DiskSizeInMb int `json:"disk_size_in_mb"`
 	Name 				 string `json:"name"`
 	StorageType  string `json:"storage_type"`
 	Type 				 string `json:"type"`
