@@ -130,11 +130,13 @@ type Vm struct {
 type VmReconfigureRequest struct {
 	Action   string `json:"action"`
 	Resource struct {
-		RequestType     string `json:"request_type"`
-		VmMemory        string `json:"vm_memory"`
+		CoresPerSocket  string `json:"cores_per_socket"`
+		DiskAdd					[]DiskAdd `json:"disk_add,omitempty"`
+		DiskRemove			[]DiskRemove `json:"disk_remove,omitempty"`
 		NumberOfCpus    string `json:"number_of_cpus"`
 		NumberOfSockets string `json:"number_of_sockets"`
-		CoresPerSocket  string `json:"cores_per_socket"`
+		RequestType     string `json:"request_type"`
+		VmMemory        string `json:"vm_memory"`
 	} `json:"resource"`
 }
 
@@ -147,19 +149,6 @@ type DiskAdd struct {
 
 type DiskRemove	struct {
 	DiskName string `json:"disk_name"`
-} 
-
-type AdditionalDiskRequest struct {
-	Action   string `json:"action"`
-	Resource struct {
-		CoresPerSocket  string `json:"cores_per_socket"`
-		DiskAdd					[]DiskAdd `json:"disk_add,omitempty"`
-		DiskRemove			[]DiskRemove `json:"disk_remove,omitempty"`
-		NumberOfCpus    string `json:"number_of_cpus"`
-		NumberOfSockets string `json:"number_of_sockets"`
-		RequestType     string `json:"request_type"`
-		VmMemory        string `json:"vm_memory"`
-	} `json:"resource"`
 }
 
 type ServiceReconfigureRequest struct {
