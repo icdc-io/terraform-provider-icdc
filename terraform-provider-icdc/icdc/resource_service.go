@@ -11,6 +11,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 	"github.com/r3labs/diff/v3"
 )
 
@@ -77,10 +78,22 @@ func resourceService() *schema.Resource {
 									"additional_disk_type": &schema.Schema{
 										Type:     schema.TypeString,
 										Optional: true,
+										/* 
+											ToDo: think about validatefunc and enviromental variables, because
+											ValidateFunc is called with empty env vars (if we want to call requestApi)
+										*/
+										ValidateFunc: func(val any, key string) (warns []string, errs []error) {
+											if tfDiskType := val.(string); tfDiskType != "nvme" {
+												errs = append(errs, fmt.Errorf("%q must be nvme, got: %s", key, tfDiskType))
+											}
+											
+											return
+										},
 									},
 									"additional_disk_size": &schema.Schema{
 										Type:     schema.TypeString,
 										Optional: true,
+										ValidateFunc: validation.StringIsNotEmpty,
 									},
 									"filename": &schema.Schema{
 										Type:     schema.TypeString,
@@ -127,7 +140,7 @@ func resourceServiceCreate(d *schema.ResourceData, m interface{}) error {
 	additional_disk := "f"
 	if (d.Get("vms.0.additional_disk.#") != "0") {
 		// ToDo: make different APIs endpoints functions
-		// ToDo: add ValidateFunc to schema
+		// ToDo: add ValidateFunc to schema and change types (string to int) of schema and structs
 		var tags *TagsResponse
 		responseBody, err := requestApi("GET", "tags?expand=resources&attributes=classification&filter[]=name='/managed/storage_type/*'", nil)
 		if err != nil {
