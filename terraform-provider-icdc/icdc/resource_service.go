@@ -566,112 +566,94 @@ func resourceServiceUpdate(d *schema.ResourceData, m interface{}) error {
 			additionalDiskRequest.Resource.RequestType = "vm_reconfigure"
 			additionalDiskRequest.Resource.VmMemory = d.Get("vms.0.memory_mb").(string)
 
-			o, n := d.GetChange("vms.0.additional_disk")
-			os := o.([]interface{})
-			ns := n.([]interface{})
-			changelog, _ := diff.Diff(o, n)
+func (vmReconfigureRequest *VmReconfigureRequest) setAdditionalDisksRequest(d *schema.ResourceData) error {
+	o, n := d.GetChange("vms.0.additional_disk")
+	os := o.([]interface{})
+	ns := n.([]interface{})
+	changelog, _ := diff.Diff(o, n)
 
-			// make pretty log
-			log.Println(PrettyStruct(changelog))
+	// make pretty log
+	log.Println(PrettyStruct(changelog))
 
-			// make request for tags
-			response, err := requestApi("GET", "tags?expand=resources&attributes=classification&filter[]=name='/managed/storage_type/*'", nil)
+	// make request for tags
+	response, err := requestApi("GET", "tags?expand=resources&attributes=classification&filter[]=name='/managed/storage_type/*'", nil)
+	if err != nil {
+		return fmt.Errorf("error requesting storage types: %w", err)
+	}
+
+	var tags *TagsResponse
+	err = response.Decode(&tags)
+	if err != nil {
+		return fmt.Errorf("error decoding tags response: %w", err)
+	}
+
+	// add vars for getting unique path for update
+	var existing_paths = make(map[string]bool)
+	var paths = []string{}
+
+	for _, value := range changelog {
+
+		// if create -> create
+		// if update -> collect unique paths -> destroy and create
+		// if delete -> destroy
+
+		// convert map index path from string to int
+		index, err := strconv.Atoi(value.Path[0])
+		if err != nil {
+			return fmt.Errorf("error converting from string to int: %w", err)
+		}
+		
+		switch value.Type {
+		case "create":
+			new := ns[index].(map[string]interface{})
+
+			diskAdd, err := diskAdd(&new, tags)
 			if err != nil {
-				return fmt.Errorf("error requesting storage types: %w", err)
+				return fmt.Errorf("error adding disk to request: %w", err)
 			}
-	
-			var tags *TagsResponse
-			err = response.Decode(&tags)
+			vmReconfigureRequest.Resource.DiskAdd = append(vmReconfigureRequest.Resource.DiskAdd, diskAdd)
+		case "update":
+			// collect uniq paths
+			if existing_paths[value.Path[0]] {
+				continue
+			}
+			paths = append([]string{value.Path[0]}, paths...)
+			existing_paths[value.Path[0]] = true
+		case "delete":
+			old := os[index].(map[string]interface{})
+
+			diskRemove, err := diskRemove(&old)
 			if err != nil {
-				return fmt.Errorf("error decoding tags response: %w", err)
+				return fmt.Errorf("error removing disk to request: %w", err)
 			}
+			vmReconfigureRequest.Resource.DiskRemove = append(vmReconfigureRequest.Resource.DiskRemove, diskRemove)
+		}
+	}
 
-			// add vars for getting unique path for update
-			var existing_paths = make(map[string]bool)
-			var paths = []string{}
+	// ToDo: wait for changes applyed or not?
+	for _, path := range paths {
+		index, err := strconv.Atoi(path)
+		if err != nil {
+			return fmt.Errorf("error converting from string to int: %w", err)
+		}
 
-			for _, value := range changelog {
+		new := ns[index].(map[string]interface{})
 
-				// if create -> create
-				// if update -> collect unique paths -> destroy and create
-				// if delete -> destroy
+		diskRemove, err := diskRemove(&new)
+		if err != nil {
+			return fmt.Errorf("error removing disk to request: %w", err)
+		}
+		vmReconfigureRequest.Resource.DiskRemove = append([]DiskRemove{diskRemove}, vmReconfigureRequest.Resource.DiskRemove...)
 
-				index, err := strconv.Atoi(value.Path[0])
-				if err != nil {
-					return fmt.Errorf("error converting from string to int: %w", err)
-				}
-				
-				switch value.Type {
-					// ToDo: divide into subfunctions
-				case "create":
-					new := ns[index].(map[string]interface{})
+		diskAdd, err := diskAdd(&new, tags)
+		if err != nil {
+			return fmt.Errorf("error adding disk to request: %w", err)
+		}
+		vmReconfigureRequest.Resource.DiskAdd = append([]DiskAdd{diskAdd}, vmReconfigureRequest.Resource.DiskAdd...)
+	}
 
-					diskType, ok := new["additional_disk_type"].(string)
-					if !ok {
-						return fmt.Errorf("can not read additional disk type")
-					}
-					if !containsTag(tags, diskType) {
-						return fmt.Errorf("disk type is not available")
-					}
-
-					// ToDo: check for simplest types convertion
-					strDiskSize, ok := new["additional_disk_size"].(string)
-					if !ok {
-						return fmt.Errorf("can not read additional disk size")
-					}
-					intDiskSize, err := strconv.Atoi(strDiskSize)
-					if err != nil {
-						return fmt.Errorf("error converting from string to int: %w", err)
-					}
-
-					diskAdd := DiskAdd{
-						StorageType: diskType,
-						Name: "",
-						Type: fmt.Sprintf("/managed/storage_type/%s", diskType),
-						DiskSizeInMb: intDiskSize * (1 << 10),
-					}
-
-					additionalDiskRequest.Resource.DiskAdd = append(additionalDiskRequest.Resource.DiskAdd, diskAdd)
-				case "update":
-					// collect uniq paths
-					if existing_paths[value.Path[0]] {
-						continue // Already in the map
-					}
-					paths = append(paths, value.Path[0])
-					existing_paths[value.Path[0]] = true
-				case "delete":
-					old := os[index].(map[string]interface{}) 
-					filename, ok := old["filename"].(string)
-					if !ok {
-						return fmt.Errorf("can not read filename of disk")
-					}
-
-					diskRemove := DiskRemove{
-						DiskName: filename,
-					}
-					additionalDiskRequest.Resource.DiskRemove = append(additionalDiskRequest.Resource.DiskRemove, diskRemove)
-				}
-			}
-
-			// ToDo: wait for changes applyed or not?
-			// ToDo: make functions to add/remove disks
-			for _, path := range reverse(paths) {
-				index, err := strconv.Atoi(path)
-				if err != nil {
-					return fmt.Errorf("error converting from string to int: %w", err)
-				}
-
-				new := ns[index].(map[string]interface{})
-
-				filename, ok := new["filename"].(string)
-				if !ok {
-					return fmt.Errorf("can not read filename of disk")
-				}
-
-				diskRemove := DiskRemove{
-					DiskName: filename,
-				}
-				additionalDiskRequest.Resource.DiskRemove = append([]DiskRemove{diskRemove}, additionalDiskRequest.Resource.DiskRemove...)
+	return nil
+}
 
 func diskAdd(new *map[string]interface{}, tags *TagsResponse) (DiskAdd, error) {
 	diskType, ok := (*new)["additional_disk_type"].(string)
