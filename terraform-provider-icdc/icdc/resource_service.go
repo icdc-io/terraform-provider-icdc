@@ -123,10 +123,11 @@ func resourceService() *schema.Resource {
 func resourceServiceCreate(d *schema.ResourceData, m interface{}) error {
 	vlan := fmt.Sprintf("%s (%s)", d.Get("vms.0.subnet").(string), d.Get("vms.0.subnet").(string))
 	
-	// ToDo: make update? (add other additional disks)
+	// ToDo: make update? (add other additional disks at the end of create)
 	additional_disk := "f"
 	if (d.Get("vms.0.additional_disk.#") != "0") {
 		// ToDo: make different APIs endpoints functions
+		// ToDo: add ValidateFunc to schema
 		var tags *TagsResponse
 		responseBody, err := requestApi("GET", "tags?expand=resources&attributes=classification&filter[]=name='/managed/storage_type/*'", nil)
 		if err != nil {
@@ -138,12 +139,20 @@ func resourceServiceCreate(d *schema.ResourceData, m interface{}) error {
 		}
 
 		tfDiskType := d.Get("vms.0.additional_disk.0.additional_disk_type").(string)
-		// ToDo: additional_disk_size can't be <= 0
-		if containsTag(tags, tfDiskType) && (d.Get("vms.0.additional_disk.0.additional_disk_size") != "") {
-			additional_disk = "t"
-		} else {
+		if !containsTag(tags, tfDiskType) {
 			return fmt.Errorf("error: unsupported additional disk type")
 		}
+
+		tfDiskSize, err := strconv.Atoi(d.Get("vms.0.additional_disk.0.additional_disk_size").(string))
+		if err != nil {
+			return fmt.Errorf("error converting from string to int: %w", err)
+		}
+		if tfDiskSize <= 0 {
+			return fmt.Errorf("error in additional disk size")
+		}
+
+		// ToDo: think about better code of type convertions
+		additional_disk = "t"
 	}
 
 	service := Service{
