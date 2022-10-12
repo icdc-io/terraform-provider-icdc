@@ -673,76 +673,34 @@ func resourceServiceUpdate(d *schema.ResourceData, m interface{}) error {
 				}
 				additionalDiskRequest.Resource.DiskRemove = append([]DiskRemove{diskRemove}, additionalDiskRequest.Resource.DiskRemove...)
 
-				// ToDo: check for simplest type convertion
-				strDiskSize, ok := new["additional_disk_size"].(string)
-				if !ok {
-					return fmt.Errorf("can not read additional disk size")
-				}
-				intDiskSize, err := strconv.Atoi(strDiskSize)
-				if err != nil {
-					return fmt.Errorf("error converting from string to int: %w", err)
-				}
-
-				diskType, ok := new["additional_disk_type"].(string)
-				if !ok {
-					return fmt.Errorf("can not read additional disk type")
-				}
-				if !containsTag(tags, diskType) {
-					return fmt.Errorf("disk type is not available")
-				}
-
-				diskAdd := DiskAdd{
-					StorageType: diskType,
-					Name: "",
-					Type: fmt.Sprintf("/managed/storage_type/%s", diskType),
-					DiskSizeInMb: intDiskSize * (1 << 10),
-				}
-				additionalDiskRequest.Resource.DiskAdd = append([]DiskAdd{diskAdd}, additionalDiskRequest.Resource.DiskAdd...)
-			}
-
-			log.Println(PrettyStruct(additionalDiskRequest))
-
-			// request and response
-			requestBody, err := json.Marshal(additionalDiskRequest)
-			if err != nil {
-				return fmt.Errorf("error marshaling addititonal disk request: %w", err)
-			}
-
-			body := bytes.NewBuffer(requestBody)
-
-			vmId := d.Get("vms.0.id").(string)
-			value, err := requestApi("POST", fmt.Sprintf("vms/%s", vmId), body)
-			if err != nil {
-				return fmt.Errorf("error requesting api vms info: %w", err)
-			}
-
-			var responseBody ReconfigurationResponse
-			if err = value.Decode(&responseBody); err != nil {
-				return fmt.Errorf("error decoding api vms response body: %w", err)
-			}
-
-			log.Println(PrettyStruct(responseBody))
-
-			// pretty log output
-			log.Println("Disk has been changed")
-		}
+func diskAdd(new *map[string]interface{}, tags *TagsResponse) (DiskAdd, error) {
+	diskType, ok := (*new)["additional_disk_type"].(string)
+	if !ok {
+		return DiskAdd{}, fmt.Errorf("can not read additional disk type")
+	}
+	if !containsTag(tags, diskType) {
+		return DiskAdd{}, fmt.Errorf("disk type is not available")
 	}
 
-	// wait ? min for disks applyed?
-	// best practise to make read at the end of update
-	return nil
-}
-
-func resourceServiceDelete(d *schema.ResourceData, m interface{}) error {
-	serviceRequest := &ServiceRequest{
-		Action: "request_retire",
+	// ToDo: check for simplest types convertion
+	strDiskSize, ok := (*new)["additional_disk_size"].(string)
+	if !ok {
+		return DiskAdd{}, fmt.Errorf("can not read additional disk size")
 	}
-
-	requestBody, err := json.Marshal(serviceRequest)
-
+	intDiskSize, err := strconv.Atoi(strDiskSize)
 	if err != nil {
-		return fmt.Errorf("error marhsaling service retire request: %w", err)
+		return DiskAdd{}, fmt.Errorf("error converting from string to int: %w", err)
 	}
+
+	diskAdd := DiskAdd{
+		StorageType: diskType,
+		Name: "",
+		Type: fmt.Sprintf("/managed/storage_type/%s", diskType),
+		DiskSizeInMb: intDiskSize * (1 << 10),
+	}
+
+	return diskAdd, nil
+}
 
 func diskRemove(old *map[string]interface{}) (DiskRemove, error) {
 	filename, ok := (*old)["filename"].(string)
