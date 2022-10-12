@@ -200,8 +200,10 @@ func resourceServiceCreate(d *schema.ResourceData, m interface{}) error {
 	}
 
 	body := bytes.NewBuffer(requestBody)
-	// prettystruct
+
+	// prettystruct for logs
 	log.Println(PrettyStruct(serviceRequest))
+	
 	responseBody, err := requestApi("POST", "service_orders/cart/service_requests/", body)
 	if err != nil {
 		return fmt.Errorf("error requesting service: %w", err)
@@ -267,7 +269,7 @@ func resourceServiceCreate(d *schema.ResourceData, m interface{}) error {
 	d.Set("vms.0.id", vmId)
 	log.Println("Service Vm", vmId, "Created")
 
-	// ToDo: make read or update
+	// ToDo: make read and update
 	return nil
 }
 
@@ -319,7 +321,7 @@ func resourceServiceRead(d *schema.ResourceData, m interface{}) error {
 		return fmt.Errorf("error getting api services: %w", err)
 	}
 
-	// can also add dialog_ssh_key
+	// mb also add dialog_ssh_key
 	var service *Service
 	err = responseBody.Decode(&service)
 	if err != nil {
@@ -354,7 +356,7 @@ func flattenVms(vmsList []VmParams, d *schema.ResourceData) []interface{} {
 				return nil
 			}
 
-			// i hope that system disk will be first in all disks
+			// i hope that system disk will be first in all vm disks
 			sort.SliceStable(remoteVm.Disks, func(i, j int) bool {
 				return remoteVm.Disks[i].Id < remoteVm.Disks[j].Id
 			})
@@ -372,7 +374,9 @@ func flattenVms(vmsList []VmParams, d *schema.ResourceData) []interface{} {
 
 			// maybe it will be better to use TypeSet
 			if len(remoteVm.Disks) > 1 {
+				// remove system disk from array
 				remoteVm.Disks = remoteVm.Disks[1:]
+
 				disks := make([]map[string]interface{}, 0)
 				tf_state_disks := d.Get("vms.0.additional_disk").([]interface{})
 
@@ -381,7 +385,6 @@ func flattenVms(vmsList []VmParams, d *schema.ResourceData) []interface{} {
 				for index1 := range tf_state_disks {
 					disk1 := tf_state_disks[index1].(map[string]interface{})
 					for index2, disk2 := range remoteVm.Disks {
-						// make for type
 						// convert size to gb and string
 						disk2.Size = disk2.Size / (1 << 30)
 						strDisk2Size := strconv.Itoa(disk2.Size)
@@ -472,7 +475,7 @@ func resourceServiceUpdate(d *schema.ResourceData, m interface{}) error {
 					they are two different requests to update vm
 		*/
 
-		if d.HasChange("vms.0.cpu_cores") || d.HasChange("vms.0.memory_mb") {
+		if d.HasChange("vms.0.cpu_cores") || d.HasChange("vms.0.memory_mb") || d.HasChange("vms.0.additional_disk") {
 			var vmReconfigureRequest VmReconfigureRequest
 			vmReconfigureRequest.Action = "reconfigure"
 			vmReconfigureRequest.Resource.RequestType = "vm_reconfigure"
@@ -480,6 +483,24 @@ func resourceServiceUpdate(d *schema.ResourceData, m interface{}) error {
 			vmReconfigureRequest.Resource.NumberOfCpus = d.Get("vms.0.cpu_cores").(string)
 			vmReconfigureRequest.Resource.NumberOfSockets = "1"
 			vmReconfigureRequest.Resource.CoresPerSocket = d.Get("vms.0.cpu_cores").(string)
+
+			if d.HasChange("vms.0.additional_disk") {
+				/*
+						artemsafonau" IT MUST BE REFACTORED
+						need to use TypeSet because of order of disks?
+						change storage type logic in future version
+						is it needed to wait for changes applyed?
+				*/
+
+				// ToDo: aws check backups for notification
+				// set additional_disk_request
+				err := (&vmReconfigureRequest).setAdditionalDisksRequest(d)
+				if err != nil {
+					return fmt.Errorf("error making additional disk request: %w", err)
+				}
+			}
+
+			log.Println(PrettyStruct(vmReconfigureRequest))
 
 			requestBody, err := json.Marshal(vmReconfigureRequest)
 
@@ -544,27 +565,36 @@ func resourceServiceUpdate(d *schema.ResourceData, m interface{}) error {
 
 			log.Println(PrettyStruct(responseBody))
 		}
+	}
 
-		if d.HasChange("vms.0.additional_disk") { 
-			// ToDo: think about union of vm resources and disks configuration
-		 	/*
-			  	artemsafonau" IT MUST BE REFACTORED
-					need to use TypeSet because of order of disks?
-					update disks is unstable because of kafka queue
-			  	change storage type logic in future version
-					is it needed to wait for changes applyed?
-		 	*/
+	// wait ? min for disks applyed?
+	// best practise to make read at the end of update
+	return nil
+}
 
-			// aws check backups for notification
+func resourceServiceDelete(d *schema.ResourceData, m interface{}) error {
+	serviceRequest := &ServiceRequest{
+		Action: "request_retire",
+	}
 
-			// set additional_disk_request
-			var additionalDiskRequest AdditionalDiskRequest
-			additionalDiskRequest.Action = "reconfigure"
-			additionalDiskRequest.Resource.CoresPerSocket = d.Get("vms.0.cpu_cores").(string)
-			additionalDiskRequest.Resource.NumberOfCpus = d.Get("vms.0.cpu_cores").(string)
-			additionalDiskRequest.Resource.NumberOfSockets = "1"
-			additionalDiskRequest.Resource.RequestType = "vm_reconfigure"
-			additionalDiskRequest.Resource.VmMemory = d.Get("vms.0.memory_mb").(string)
+	requestBody, err := json.Marshal(serviceRequest)
+
+	if err != nil {
+		return fmt.Errorf("error marhsaling service retire request: %w", err)
+	}
+
+	body := bytes.NewBuffer(requestBody)
+
+	_, err = requestApi("POST", fmt.Sprintf("services/%s", d.Id()), body)
+
+	if err != nil {
+		return fmt.Errorf("error requesting service retire: %w", err)
+	}
+
+	d.SetId("")
+
+	return nil
+}
 
 func (vmReconfigureRequest *VmReconfigureRequest) setAdditionalDisksRequest(d *schema.ResourceData) error {
 	o, n := d.GetChange("vms.0.additional_disk")
