@@ -744,25 +744,17 @@ func resourceServiceDelete(d *schema.ResourceData, m interface{}) error {
 		return fmt.Errorf("error marhsaling service retire request: %w", err)
 	}
 
-	body := bytes.NewBuffer(requestBody)
-
-	_, err = requestApi("POST", fmt.Sprintf("services/%s", d.Id()), body)
-
-	if err != nil {
-		return fmt.Errorf("error requesting service retire: %w", err)
+func diskRemove(old *map[string]interface{}) (DiskRemove, error) {
+	filename, ok := (*old)["filename"].(string)
+	if !ok {
+		return DiskRemove{}, fmt.Errorf("can not read filename of disk")
 	}
 
-	d.SetId("")
-
-	return nil
-}
-
-func reverse(s []string) []string{
-	last := len(s) - 1
-	for i := 0; i < len(s)/2; i++ {
-			s[i], s[last-i] = s[last-i], s[i]
+	diskRemove := DiskRemove{
+		DiskName: filename,
 	}
-	return s
+
+	return diskRemove, nil
 }
 
 func containsTag(s *TagsResponse, str string) bool {
