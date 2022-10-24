@@ -22,13 +22,31 @@ type Service struct {
 }
 
 type VmParams struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	MemoryMb    string `json:"memory_mb"`
-	CpuCores    string `json:"cpu_cores"`
-	StorageType string `json:"storage_type"`
-	StorageMb   string `json:"storage_mb"`
-	Network     string `json:"network"`
+	ID          			 string `json:"id"`
+	Name        			 string `json:"name"`
+	MemoryMb     			 string `json:"memory_mb"`
+	CpuCores    			 string `json:"cpu_cores"`
+	SystemDiskType 		 string `json:"system_disk_type"`
+	SystemDiskSize   	 string `json:"system_disk_size"`
+	// mb change
+	AdditionalDisk 		 string `json:"additional_disk"`
+	AdditionalDiskType string `json:"additional_disk_type"`
+	AdditionalDiskSize string `json:"additional_disk_size"`
+	Network     			 string `json:"network"`
+}
+
+type VmParamsForRead struct {
+	ID          			 string `json:"id"`
+	Name        			 string `json:"name"`
+	MemoryMb     			 string `json:"memory_mb"`
+	CpuCores    			 string `json:"cpu_cores"`
+	SystemDiskType 		 string `json:"system_disk_type"`
+	SystemDiskSize   	 string `json:"system_disk_size"`
+	AdditionalDisk []struct {
+		AdditionalDiskType string `json:"additional_disk_type"`
+		AdditionalDiskSize string `json:"additional_disk_size"`
+	} `json:"additional_disk"`
+	Subnet     			 	 string `json:"network"`
 }
 
 type ServiceResources struct {
@@ -38,8 +56,11 @@ type ServiceResources struct {
 	CoresPerSocket      string `json:"cores_per_socket"`
 	Hostname            string `json:"hostname"`
 	Vlan                string `json:"vlan"`
-	SystemDiskType      string `json:"system_disk_type"`
-	SystemDiskSize      string `json:"system_disk_size"`
+	SystemDiskType 			string `json:"system_disk_type"`
+	SystemDiskSize   		string `json:"system_disk_size"`
+	AdditionalDisk			string `json:"additional_disk"`
+	AdditionalDiskType 	string `json:"additional_disk_type"`
+	AdditionalDiskSize  string `json:"additional_disk_size"`
 	AuthType            string `json:"auth_type"`
 	Adminpassword       string `json:"adminpassword"`
 	SshKey              string `json:"ssh_key"`
@@ -69,6 +90,25 @@ type ServiceMiqRequest struct {
 	} `json:"miq_request_tasks"`
 }
 
+
+type TagsResponse struct {
+	Name string `json:"name"`
+	Resources []struct {
+		Name string `json:"name"`
+	} `json:"resources"`
+}
+
+type ServiceVmProvisonResponse struct {
+	Id 						 string `json:"id"`
+	Name 					 string `json:"name"`
+	LifecycleState string `json:"lifecycle_state"`
+	Vms []struct {
+		Href string `json:"href"`
+		Id 	 string `json:"id"`
+		Name string `json:"name"`
+	} `json:"vms"`
+}
+
 type Vm struct {
 	Id       string `json:"id"`
 	Name     string `json:"name"`
@@ -77,9 +117,10 @@ type Vm struct {
 		CpuCores int `json:"cpu_total_cores"`
 	} `json:"hardware"`
 	Disks []struct {
-		Id   string `json:"id"`
-		Size int    `json:"size"`
-	}
+		Id   		 string `json:"id"`
+		Size 		 int    `json:"size"`
+		Filename string `json:"filename"`
+	} `json:"disks"`
 	Network []struct {
 		Name string `json:"name"`
 	} `json:"lans"`
@@ -89,12 +130,25 @@ type Vm struct {
 type VmReconfigureRequest struct {
 	Action   string `json:"action"`
 	Resource struct {
-		RequestType     string `json:"request_type"`
-		VmMemory        string `json:"vm_memory"`
+		CoresPerSocket  string `json:"cores_per_socket"`
+		DiskAdd					[]DiskAdd `json:"disk_add,omitempty"`
+		DiskRemove			[]DiskRemove `json:"disk_remove,omitempty"`
 		NumberOfCpus    string `json:"number_of_cpus"`
 		NumberOfSockets string `json:"number_of_sockets"`
-		CoresPerSocket  string `json:"cores_per_socket"`
+		RequestType     string `json:"request_type"`
+		VmMemory        string `json:"vm_memory"`
 	} `json:"resource"`
+}
+
+type DiskAdd struct {
+	DiskSizeInMb int `json:"disk_size_in_mb"`
+	Name 				 string `json:"name"`
+	StorageType  string `json:"storage_type"`
+	Type 				 string `json:"type"`
+}
+
+type DiskRemove	struct {
+	DiskName string `json:"disk_name"`
 }
 
 type ServiceReconfigureRequest struct {
@@ -238,4 +292,11 @@ type TaskResponse struct {
 		TaskId   string `json:"task_id"`
 		TaskHref string `json:"task_href"`
 	} `json:"results"`
+}
+
+// Response structures
+type ReconfigurationResponse struct {
+	Success bool 	 `json:"success"`
+	Message string `json:"message"`
+	Href 		string `json:"href"`
 }
