@@ -6,7 +6,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 
@@ -34,17 +34,17 @@ func Provider() *schema.Provider {
 				Sensitive:   true,
 				DefaultFunc: schema.EnvDefaultFunc("CPV_LOCATION", nil),
 			},
-			"group": &schema.Schema{
+			"role": &schema.Schema{
 				Type:        schema.TypeString,
 				Required:    true,
 				Sensitive:   true,
-				DefaultFunc: schema.EnvDefaultFunc("CPV_GROUP", nil),
+				DefaultFunc: schema.EnvDefaultFunc("CPV_ROLE", nil),
 			},
 			"platform": &schema.Schema{
 				Type:        schema.TypeString,
 				Required:    true,
 				Sensitive:   true,
-				DefaultFunc: schema.EnvDefaultFunc("CPV", nil),
+				DefaultFunc: schema.EnvDefaultFunc("CPV_NAME", nil),
 			},
 			"account": &schema.Schema{
 				Type:        schema.TypeString,
@@ -54,23 +54,13 @@ func Provider() *schema.Provider {
 			},
 		},
 		ResourcesMap: map[string]*schema.Resource{
-			"icdc_service": resourceService(),
-			"icdc_subnet":  resourceSubnet(),
+			"icdc_service":        resourceService(),
+			"icdc_subnet":         resourceSubnet(),
+			"icdc_security_group": resourceSecurityGroup(),
 		},
 		DataSourcesMap:       map[string]*schema.Resource{},
 		ConfigureContextFunc: providerConfigure,
 	}
-}
-
-type IcdcToken struct {
-	ApiGateway string
-	Group      string
-	Jwt        string
-}
-
-type JwtToken struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
 }
 
 func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}, diag.Diagnostics) {
@@ -78,7 +68,7 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 	password := d.Get("password").(string)
 	location := d.Get("location").(string)
 	account := d.Get("account").(string)
-	group := d.Get("group").(string)
+	role := d.Get("role").(string)
 
 	var diags diag.Diagnostics
 
@@ -86,13 +76,19 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 	var buf = []byte("username=" + username + "&password=" + password + "&client_id=insights&grant_type=password")
 	var jwt JwtToken
 	resp, _ := http.Post(url, "application/x-www-form-urlencoded", bytes.NewBuffer(buf))
-	body, _ := ioutil.ReadAll(resp.Body)
-	json.Unmarshal([]byte(body), &jwt)
+	body, _ := io.ReadAll(resp.Body)
+	err := json.Unmarshal([]byte(body), &jwt)
+
+	defer resp.Body.Close()
+
+	if err != nil {
+		return nil, diags
+	}
 
 	gateway_url := fmt.Sprintf("https://api.%s.icdc.io/api/compute/v1", location)
 
 	os.Setenv("API_GATEWAY", gateway_url)
-	os.Setenv("AUTH_GROUP", group)
+	os.Setenv("ROLE", role)
 	os.Setenv("AUTH_TOKEN", jwt.AccessToken)
 	os.Setenv("LOCATION", location)
 	os.Setenv("ACCOUNT", account)

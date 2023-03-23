@@ -1,7 +1,7 @@
 terraform {
   required_providers {
     icdc = {
-      version = "0.1"
+      version = "1.0.0"
       source = "local.com/ahrechushkin/icdc"
     }
   }
@@ -12,17 +12,8 @@ provider "icdc" {
   password = ""
   location = ""
   account = ""
-  group    = ""
+  role = ""
   platform = ""
-}
-
-resource "icdc_subnet" "tf-vpc" {
-  name = "tf-4"
-  cidr = "10.20.16.0/24"
-  network_protocol = "ipv4"
-  ip_version = 4
-  gateway = "10.16.16.1"
-  dns_nameservers = ["8.8.8.8"]
 }
 
 resource "icdc_service" "composite-resource" {
@@ -34,7 +25,7 @@ resource "icdc_service" "composite-resource" {
     memory_mb = "8192"
     storage_type = "nvme"
     storage_mb = "30"
-    network = "ycz_icdc_base"
+    subnet = "ycz_icdc_base"
   }
 }
 
@@ -47,7 +38,7 @@ resource "icdc_service" "api-1" {
     memory_mb = "4096"
     storage_type = "nvme"
     storage_mb = "30"
-    network = "ycz_icdc_base"
+    subnet = "ycz_icdc_base"
   }
 }
 
@@ -60,6 +51,10 @@ resource "icdc_service" "db-1" {
     memory_mb = "2048"
     storage_type = "nvme"
     storage_mb = "30"
-    network = "ycz_icdc_base"
+    subnet = "ycz_icdc_base"
   }
+}
+
+resource "icdc_security_group" "myfw" {
+  name = "myfw"
 }

@@ -4,47 +4,23 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"net/http"
-	"os"
+	"log"
+	"sort"
 	"strconv"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/r3labs/diff/v3"
 )
 
 /*
   ahrechushkin:
-		- Need to move all http requests to separate function to make code prettier.
-	  requestComputeApi(method, endpoint, body)
-		- Need to prepare generic type for non-root (service, vm, etc.) Compute objects, i mean RequestResponse, Requests...
 		- Need to find a way to pass metada in provider context (now i passed all required info in os environment vars)
 		- Need to implement error handling
 		- Need to implement logger
 */
-
-type Service struct {
-	ID                string `json:"id"`
-	Name              string `json:"name"`
-	SshKey            string
-	ServiceTemplateId string     `json:"service_template_id"`
-	Vms               []VmParams `json:"vms"`
-	/* ahrechushkin: for sure we can fetch full information about vm we need to make 2 requests.
-	1. api/services/:ID?expand=resources&attributes=vms
-	2. api/vms/:ID?expand=resources&attributes=hardware
-	Maybe make sense a generate object with aggregated information from two endpoints.
-	*/
-}
-
-type VmParams struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	MemoryMb    string `json:"memory_mb"`
-	CpuCores    string `json:"cpu_cores"`
-	StorageType string `json:"storage_type"`
-	StorageMb   string `json:"storage_mb"`
-	Network     string `json:"network"`
-}
 
 func resourceService() *schema.Resource {
 	return &schema.Resource{
@@ -81,22 +57,67 @@ func resourceService() *schema.Resource {
 							Type:     schema.TypeString,
 							Required: true,
 						},
-						"storage_type": &schema.Schema{
+						"system_disk_type": &schema.Schema{
 							Type:     schema.TypeString,
 							Required: true,
 						},
-						"storage_mb": &schema.Schema{
+						"system_disk_size": &schema.Schema{
 							Type:     schema.TypeString,
 							Required: true,
 						},
-						"network": &schema.Schema{
+						"additional_disk": {
+							// artemsafonau: i think it will be better to make TypeSet like in AWS
+							Type: schema.TypeList,
+							Optional: true,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"id": &schema.Schema{
+										Type:     schema.TypeString,
+										Computed: true,
+									},
+									"additional_disk_type": &schema.Schema{
+										Type:     schema.TypeString,
+										Optional: true,
+										/* 
+											ToDo: think about validatefunc and enviromental variables, because
+											ValidateFunc is called with empty env vars (if we want to call requestApi)
+										*/
+										ValidateFunc: func(val any, key string) (warns []string, errs []error) {
+											if tfDiskType := val.(string); tfDiskType != "nvme" {
+												errs = append(errs, fmt.Errorf("%q must be nvme, got: %s", key, tfDiskType))
+											}
+											
+											return
+										},
+									},
+									"additional_disk_size": &schema.Schema{
+										Type:     schema.TypeString,
+										Optional: true,
+										ValidateFunc: validation.StringIsNotEmpty,
+									},
+									"filename": &schema.Schema{
+										Type:     schema.TypeString,
+										Computed: true,
+									},
+								},
+							},
+						},
+						"subnet": &schema.Schema{
 							Type:     schema.TypeString,
 							Required: true,
+						},
+						"ipaddresses": &schema.Schema{
+							Type:     schema.TypeList,
+							Computed: true,
+							Elem: &schema.Schema{
+								Type: schema.TypeString,
+							},
 						},
 					},
 				},
 				Required: true,
 			},
+			// ToDo: make possibility to choose between ssh and generated-password
 			"ssh_key": &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
@@ -106,62 +127,60 @@ func resourceService() *schema.Resource {
 				Required: true,
 			},
 		},
+		Timeouts: &schema.ResourceTimeout{
+			Create: schema.DefaultTimeout(20 * time.Minute),
+		},
 	}
 }
 
-type ServiceResources struct {
-	ServiceName         string `json:"service_name"`
-	VmMemory            string `json:"vm_memory"`
-	NumberOfSockets     string `json:"number_of_sockets"`
-	CoresPerSocket      string `json:"cores_per_socket"`
-	Hostname            string `json:"hostname"`
-	Vlan                string `json:"vlan"`
-	SystemDiskType      string `json:"system_disk_type"`
-	SystemDiskSize      string `json:"system_disk_size"`
-	AuthType            string `json:"auth_type"`
-	Adminpassword       string `json:"adminpassword"`
-	SshKey              string `json:"ssh_key"`
-	ServiceTemplateHref string `json:"service_template_href"`
-	RegionNumber        string `json:"region_number"`
-}
-
-type ServiceRequest struct {
-	Action    string             `json:"action"`
-	Resources []ServiceResources `json:"resources"`
-}
-
-type ServiceRequestResponse struct {
-	Results []struct {
-		Success            bool   `json:"success"`
-		Message            string `json:"message"`
-		ServiceRequestId   string `json:"service_request_id"`
-		ServiceRequestHref string `json:"service_request_href"`
-		Href               string `json:"href"`
-	} `json:"results"`
-}
-
-type ServiceMiqRequest struct {
-	MiqRequestTasks []struct {
-		DestinationId   string `json:"destination_id"`
-		DestinationType string `json:"destination_type"`
-	} `json:"miq_request_tasks"`
-}
-
 func resourceServiceCreate(d *schema.ResourceData, m interface{}) error {
-	client := &http.Client{Timeout: 100 * time.Second}
+	vlan := fmt.Sprintf("%s (%s)", d.Get("vms.0.subnet").(string), d.Get("vms.0.subnet").(string))
+	
+	// ToDo: make update? (add other additional disks at the end of create)
+	additional_disk := "f"
+	if (d.Get("vms.0.additional_disk.#") != "0") {
+		// ToDo: make different APIs endpoints functions
+		// ToDo: add ValidateFunc to schema and change types (string to int) of schema and structs
+		var tags *TagsResponse
+		responseBody, err := requestApi("GET", "tags?expand=resources&attributes=classification&filter[]=name='/managed/storage_type/*'", nil)
+		if err != nil {
+			return fmt.Errorf("error getting api tags: %w", err)
+		}
+		err = responseBody.Decode(&tags)
+		if err != nil {
+			return fmt.Errorf("error decoding tags: %w", err)
+		}
 
-	vlan := fmt.Sprintf("%s (%s)", d.Get("vms.0.network").(string), d.Get("vms.0.network").(string))
+		tfDiskType := d.Get("vms.0.additional_disk.0.additional_disk_type").(string)
+		if !containsTag(tags, tfDiskType) {
+			return fmt.Errorf("error: unsupported additional disk type")
+		}
+
+		tfDiskSize, err := strconv.Atoi(d.Get("vms.0.additional_disk.0.additional_disk_size").(string))
+		if err != nil {
+			return fmt.Errorf("error converting from string to int: %w", err)
+		}
+		if tfDiskSize <= 0 {
+			return fmt.Errorf("error in additional disk size")
+		}
+
+		// ToDo: think about better code of type convertions
+		additional_disk = "t"
+	}
 
 	service := Service{
 		Name:              d.Get("name").(string),
 		SshKey:            d.Get("ssh_key").(string),
 		ServiceTemplateId: d.Get("service_template_id").(string),
 		Vms: []VmParams{VmParams{
-			MemoryMb:    d.Get("vms.0.memory_mb").(string),
-			CpuCores:    d.Get("vms.0.cpu_cores").(string),
-			StorageType: d.Get("vms.0.storage_type").(string),
-			StorageMb:   d.Get("vms.0.storage_mb").(string),
-			Network:     vlan,
+			MemoryMb:        		d.Get("vms.0.memory_mb").(string),
+			CpuCores:    		 		d.Get("vms.0.cpu_cores").(string),
+			SystemDiskType:  		d.Get("vms.0.system_disk_type").(string),
+			SystemDiskSize:  		d.Get("vms.0.system_disk_size").(string),
+			AdditionalDisk:     additional_disk,
+			AdditionalDiskType: d.Get("vms.0.additional_disk.0.additional_disk_type").(string),
+			AdditionalDiskSize: d.Get("vms.0.additional_disk.0.additional_disk_size").(string),
+			Network:     				vlan,
 		},
 		},
 	}
@@ -175,9 +194,12 @@ func resourceServiceCreate(d *schema.ResourceData, m interface{}) error {
 			CoresPerSocket:      service.Vms[0].CpuCores,
 			Hostname:            "generated-hostname",
 			Vlan:                service.Vms[0].Network,
-			SystemDiskType:      service.Vms[0].StorageType,
-			SystemDiskSize:      service.Vms[0].StorageMb,
-			AuthType:            "key",
+			SystemDiskType:  		 service.Vms[0].SystemDiskType,
+			SystemDiskSize:  		 service.Vms[0].SystemDiskSize,
+			AdditionalDisk:  		 service.Vms[0].AdditionalDisk,
+			AdditionalDiskType:  service.Vms[0].AdditionalDiskType,
+			AdditionalDiskSize:  service.Vms[0].AdditionalDiskSize,
+			AuthType:            "key", // ToDo: update for generate-password
 			SshKey:              service.SshKey,
 			ServiceTemplateHref: fmt.Sprintf("/api/service_templates/%s", service.ServiceTemplateId),
 			RegionNumber:        "18",
@@ -186,34 +208,26 @@ func resourceServiceCreate(d *schema.ResourceData, m interface{}) error {
 	}
 
 	requestBody, err := json.Marshal(serviceRequest)
-
 	if err != nil {
-		return err
+		return fmt.Errorf("error marshaling service request: %w", err)
 	}
 
 	body := bytes.NewBuffer(requestBody)
 
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/service_orders/cart/service_requests/", os.Getenv("API_GATEWAY")), body)
-
+	// prettystruct for logs
+	log.Println(PrettyStruct(serviceRequest))
+	
+	responseBody, err := requestApi("POST", "service_orders/cart/service_requests/", body)
 	if err != nil {
-		return err
+		return fmt.Errorf("error requesting service: %w", err)
 	}
 
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", os.Getenv("AUTH_TOKEN")))
-	req.Header.Set("X_MIQ_GROUP", os.Getenv("AUTH_GROUP"))
-
-	r, err := client.Do(req)
-	if err != nil {
-		return err
+	var serviceRequestResponse *ServiceRequestResponse
+	if err = responseBody.Decode(&serviceRequestResponse); err != nil {
+		return fmt.Errorf("error decoding service response: %w", err)
 	}
 
-	var response *ServiceRequestResponse
-
-	err = json.NewDecoder(r.Body).Decode(&response)
-	if err != nil {
-		return err
-	}
+	log.Println(PrettyStruct(serviceRequestResponse))
 
 	/*
 		ahrechushkin: We need to wait for the service request to be completed.
@@ -222,48 +236,68 @@ func resourceServiceCreate(d *schema.ResourceData, m interface{}) error {
 			Monkey patching is not the best way to do this, but anyway it works.
 	*/
 
-	serviceRequestId := response.Results[0].ServiceRequestId
+	serviceRequestId := serviceRequestResponse.Results[0].ServiceRequestId
+	var serviceId string
 
-	for {
-		serviceId, err := fetchDestinationId(serviceRequestId, "Service")
-
+	err = resource.Retry(d.Timeout(schema.TimeoutCreate), func() *resource.RetryError {
+		serviceId, err = fetchDestinationId(serviceRequestId, "Service")
 		if err != nil {
-			return err
+			return resource.NonRetryableError(err)
 		}
 
 		if serviceId != "" {
-			d.SetId(serviceId)
-			break
+			return nil
 		}
 
-		time.Sleep(10 * time.Second)
+		return resource.RetryableError(fmt.Errorf("error: service is not created"))
+	})
+
+	if err != nil {
+		return err
 	}
 
+	d.SetId(serviceId)
+	log.Println("Service", serviceId, "Created")
+
+	var vmId string
+
+	err = resource.Retry(d.Timeout(schema.TimeoutCreate), func() *resource.RetryError {
+		vmId, err = fetchDestinationVm(serviceId)
+		if err != nil {
+			return resource.NonRetryableError(err)
+		}
+
+		if vmId != "" {
+			return nil
+		}
+
+		return resource.RetryableError(fmt.Errorf("error: service vm is not created"))
+	})
+
+	if err != nil {
+		// maybe retire service?
+		return err
+	}
+
+	d.Set("vms.0.id", vmId)
+	log.Println("Service Vm", vmId, "Created")
+
+	// ToDo: make read and update
 	return nil
 }
 
 func fetchDestinationId(serviceRequestId string, destinationType string) (string, error) {
-	client := &http.Client{Timeout: 100 * time.Second}
 
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/service_requests/%s?expand=resources&attributes=miq_request_tasks", os.Getenv("API_GATEWAY"), serviceRequestId), nil)
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", os.Getenv("AUTH_TOKEN")))
-	req.Header.Set("X_MIQ_GROUP", os.Getenv("AUTH_GROUP"))
-
-	r, err := client.Do(req)
+	responseBody, err := requestApi("GET", fmt.Sprintf("service_requests/%s?expand=resources&attributes=miq_request_tasks", serviceRequestId), nil)
 	if err != nil {
 		return "", err
 	}
 
 	var response *ServiceMiqRequest
-
-	err = json.NewDecoder(r.Body).Decode(&response)
+	err = responseBody.Decode(&response)
 	if err != nil {
 		return "", err
 	}
-
-	file, _ := json.MarshalIndent(response, "", "  ")
-	_ = ioutil.WriteFile("/tmp/miq_request_task_response.json", file, 0644)
 
 	for i := range response.MiqRequestTasks {
 		if response.MiqRequestTasks[i].DestinationType == destinationType {
@@ -274,99 +308,126 @@ func fetchDestinationId(serviceRequestId string, destinationType string) (string
 	return "", nil
 }
 
+func fetchDestinationVm(serviceRequestId string) (string, error) {
+
+	responseBody, err := requestApi("GET", fmt.Sprintf("services/%s?expand=vms", serviceRequestId), nil)
+	if err != nil {
+		return "", err
+	}
+
+	var response *ServiceVmProvisonResponse
+	err = responseBody.Decode(&response)
+	if err != nil {
+		return "", err
+	}
+
+	if response.LifecycleState == "provisioned" {
+		return response.Vms[0].Id, nil
+	}
+
+	return "", nil
+}
+
 func resourceServiceRead(d *schema.ResourceData, m interface{}) error {
-	client := &http.Client{Timeout: 100 * time.Second}
-
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/services/%s?expand=resources&attributes=vms", os.Getenv("API_GATEWAY"), d.Id()), nil)
+	responseBody, err := requestApi("GET", fmt.Sprintf("services/%s?expand=resources&attributes=vms", d.Id()), nil)
 	if err != nil {
-		return err
+		return fmt.Errorf("error getting api services: %w", err)
 	}
 
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", os.Getenv("AUTH_TOKEN")))
-	req.Header.Set("X_MIQ_GROUP", os.Getenv("AUTH_GROUP"))
-
-	r, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-
-	defer r.Body.Close()
-
+	// mb also add dialog_ssh_key
 	var service *Service
-
-	err = json.NewDecoder(r.Body).Decode(&service)
+	err = responseBody.Decode(&service)
 	if err != nil {
-		return err
+		return fmt.Errorf("error decoding service response body: %w", err)
 	}
 
-	vms := flattenVms(service.Vms)
+	vms := flattenVms(service.Vms, d)
 	if err := d.Set("vms", vms); err != nil {
-		return err
+		return fmt.Errorf("error setting vms: %w", err)
 	}
 
+	log.Println(PrettyStruct(vms))
+	
 	d.SetId(d.Id())
 	return nil
 }
 
-type Vm struct {
-	Id       string `json:"id"`
-	Name     string `json:"name"`
-	Hardware struct {
-		MemoryMb int `json:"memory_mb"`
-		CpuCores int `json:"cpu_total_cores"`
-	} `json:"hardware"`
-	Disks []struct {
-		Id   string `json:"id"`
-		Size int    `json:"size"`
-	}
-	Network []struct {
-		Name string `json:"name"`
-	} `json:"lans"`
-}
-
-func flattenVms(vmsList []VmParams) []interface{} {
+func flattenVms(vmsList []VmParams, d *schema.ResourceData) []interface{} {
 	if vmsList != nil {
 		vms := make([]interface{}, len(vmsList))
 
 		for i, vm := range vmsList {
 
 			var remoteVm Vm
-
-			client := &http.Client{Timeout: 100 * time.Second}
-
-			req, err := http.NewRequest("GET", fmt.Sprintf("%s/vms/%s?expand=resources&attributes=hardware,disks,lans", os.Getenv("API_GATEWAY"), vm.ID), nil)
+			responseBody, err := requestApi("GET", fmt.Sprintf("vms/%s?expand=resources&attributes=hardware,disks,lans,ipaddresses", vm.ID), nil)
 			if err != nil {
 				return nil
 			}
 
-			req.Header.Set("Content-Type", "application/json")
-			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", os.Getenv("AUTH_TOKEN")))
-			req.Header.Set("X_MIQ_GROUP", os.Getenv("AUTH_GROUP"))
-
-			r, err := client.Do(req)
-
+			err = responseBody.Decode(&remoteVm)
 			if err != nil {
 				return nil
 			}
 
-			defer r.Body.Close()
+			// i hope that system disk will be first in all vm disks
+			sort.SliceStable(remoteVm.Disks, func(i, j int) bool {
+				return remoteVm.Disks[i].Id < remoteVm.Disks[j].Id
+			})
 
-			err = json.NewDecoder(r.Body).Decode(&remoteVm)
-
-			if err != nil {
-				return nil
-			}
+			log.Println(PrettyStruct(remoteVm.Disks))
 
 			vml := make(map[string]interface{})
 			vml["id"] = remoteVm.Id
 			vml["name"] = remoteVm.Name
 			vml["memory_mb"] = strconv.Itoa(remoteVm.Hardware.MemoryMb)
 			vml["cpu_cores"] = strconv.Itoa(remoteVm.Hardware.CpuCores)
-			vml["network"] = remoteVm.Network[0].Name
-			vml["storage_type"] = "nvme"
-			vml["storage_mb"] = strconv.Itoa(remoteVm.Disks[0].Size / (1 << 30))
+			vml["subnet"] = remoteVm.Network[0].Name
+			vml["system_disk_type"] = "nvme"
+			vml["system_disk_size"] = strconv.Itoa(remoteVm.Disks[0].Size / (1 << 30))
 
+			// maybe it will be better to use TypeSet
+			if len(remoteVm.Disks) > 1 {
+				// remove system disk from array
+				remoteVm.Disks = remoteVm.Disks[1:]
+
+				disks := make([]map[string]interface{}, 0)
+				tf_state_disks := d.Get("vms.0.additional_disk").([]interface{})
+
+				log.Println(PrettyStruct(tf_state_disks))
+
+				for index1 := range tf_state_disks {
+					disk1 := tf_state_disks[index1].(map[string]interface{})
+					for index2, disk2 := range remoteVm.Disks {
+						// convert size to gb and string
+						disk2.Size = disk2.Size / (1 << 30)
+						strDisk2Size := strconv.Itoa(disk2.Size)
+						if strDisk2Size == disk1["additional_disk_size"] {
+							included_disk := make(map[string]interface{})
+							included_disk["id"] = disk2.Id
+							included_disk["additional_disk_type"] = "nvme" // disk.type?
+							included_disk["additional_disk_size"] = strconv.Itoa(disk2.Size)
+							included_disk["filename"] = disk2.Filename
+							disks = append(disks, included_disk)
+							// remove element from remoteVmDisks
+							remoteVm.Disks = append(remoteVm.Disks[:index2], remoteVm.Disks[index2 + 1:]...)
+							break
+						}
+					}
+				}
+
+				// append all other disks
+				for _, disk := range remoteVm.Disks {
+					included_disk := make(map[string]interface{})
+					included_disk["id"] = disk.Id
+					included_disk["additional_disk_type"] = "nvme" // disk.type?
+					included_disk["additional_disk_size"] = strconv.Itoa(disk.Size / (1 << 30))
+					included_disk["filename"] = disk.Filename
+					disks = append(disks, included_disk)
+				}
+				log.Println(PrettyStruct(disks))
+				vml["additional_disk"] = disks
+			}
+			vml["ipaddresses"] = remoteVm.Ipaddresses
 			vms[i] = vml
 		}
 
@@ -374,36 +435,6 @@ func flattenVms(vmsList []VmParams) []interface{} {
 	}
 
 	return make([]interface{}, 0)
-}
-
-type VmReconfigureRequest struct {
-	Action   string `json:"action"`
-	Resource struct {
-		RequestType     string `json:"request_type"`
-		VmMemory        string `json:"vm_memory"`
-		NumberOfCpus    string `json:"number_of_cpus"`
-		NumberOfSockets string `json:"number_of_sockets"`
-		CoresPerSocket  string `json:"cores_per_socket"`
-	} `json:"resource"`
-}
-
-type ServiceReconfigureRequest struct {
-	Action   string `json:"action"`
-	Resource struct {
-		ID   string `json:"id"`
-		Name string `json:"name"`
-	} `json:"resource"`
-}
-
-type CustomButtonRequest struct {
-	Action   string `json:"action"`
-	Resource struct {
-		Params struct {
-			DialogNetworkProfile string `json:"dialog_network_profile"`
-		} `json:"params"`
-		Path string `json:"path"`
-		Task string `json:"task"`
-	} `json:"resource"`
 }
 
 func resourceServiceUpdate(d *schema.ResourceData, m interface{}) error {
@@ -416,8 +447,6 @@ func resourceServiceUpdate(d *schema.ResourceData, m interface{}) error {
 			service name upated by /api/services/{id} endpoint
 			all resources updated by /api/vms/{id} endpoint
 	*/
-
-	client := &http.Client{Timeout: 100 * time.Second}
 
 	if d.HasChange("name") {
 		// TODO: implement service update method
@@ -439,30 +468,15 @@ func resourceServiceUpdate(d *schema.ResourceData, m interface{}) error {
 		requestBody, err := json.Marshal(reconfigureRequest)
 
 		if err != nil {
-			return err
+			return fmt.Errorf("error marshaling vm change name request: %w", err)
 		}
 
 		body := bytes.NewBuffer(requestBody)
-		req, err := http.NewRequest("POST", fmt.Sprintf("%s/services/%s", os.Getenv("API_GATEWAY"), d.Id()), body)
+
+		_, err = requestApi("POST", fmt.Sprintf("services/%s", d.Id()), body)
 
 		if err != nil {
-			return err
-		}
-
-		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", os.Getenv("AUTH_TOKEN")))
-		req.Header.Set("X_MIQ_GROUP", os.Getenv("AUTH_GROUP"))
-
-		r, err := client.Do(req)
-		if err != nil {
-			return err
-		}
-
-		var response *ServiceRequestResponse
-
-		err = json.NewDecoder(r.Body).Decode(&response)
-		if err != nil {
-			return err
+			return fmt.Errorf("error sending vm change name request: %w", err)
 		}
 	}
 
@@ -474,7 +488,7 @@ func resourceServiceUpdate(d *schema.ResourceData, m interface{}) error {
 					they are two different requests to update vm
 		*/
 
-		if d.HasChange("vms.0.cpu_cores") || d.HasChange("vms.0.memory_mb") {
+		if d.HasChange("vms.0.cpu_cores") || d.HasChange("vms.0.memory_mb") || d.HasChange("vms.0.additional_disk") {
 			var vmReconfigureRequest VmReconfigureRequest
 			vmReconfigureRequest.Action = "reconfigure"
 			vmReconfigureRequest.Resource.RequestType = "vm_reconfigure"
@@ -483,39 +497,47 @@ func resourceServiceUpdate(d *schema.ResourceData, m interface{}) error {
 			vmReconfigureRequest.Resource.NumberOfSockets = "1"
 			vmReconfigureRequest.Resource.CoresPerSocket = d.Get("vms.0.cpu_cores").(string)
 
+			if d.HasChange("vms.0.additional_disk") {
+				/*
+						artemsafonau" IT MUST BE REFACTORED
+						need to use TypeSet because of order of disks?
+						change storage type logic in future version
+						is it needed to wait for changes applyed?
+				*/
+
+				// ToDo: aws check backups for notification
+				// set additional_disk_request
+				err := (&vmReconfigureRequest).setAdditionalDisksRequest(d)
+				if err != nil {
+					return fmt.Errorf("error making additional disk request: %w", err)
+				}
+			}
+
+			log.Println(PrettyStruct(vmReconfigureRequest))
+
 			requestBody, err := json.Marshal(vmReconfigureRequest)
 
 			if err != nil {
-				return err
+				return fmt.Errorf("error marhsaling vm reconfigure request: %w", err)
 			}
 
 			body := bytes.NewBuffer(requestBody)
 
 			vmId := d.Get("vms.0.id").(string)
-			req, err := http.NewRequest("POST", fmt.Sprintf("%s/vms/%s", os.Getenv("API_GATEWAY"), vmId), body)
-
+			value, err := requestApi("POST", fmt.Sprintf("vms/%s", vmId), body)
 			if err != nil {
-				return err
+				return fmt.Errorf("error sending vms request: %w", err)
 			}
 
-			req.Header.Set("Content-Type", "application/json")
-			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", os.Getenv("AUTH_TOKEN")))
-			req.Header.Set("X_MIQ_GROUP", os.Getenv("AUTH_GROUP"))
-
-			r, err := client.Do(req)
-			if err != nil {
-				return err
+			var responseBody ReconfigurationResponse
+			if err = value.Decode(&responseBody); err != nil {
+				return fmt.Errorf("error decoding vms response body: %w", err)
 			}
 
-			var response *ServiceRequestResponse
-
-			err = json.NewDecoder(r.Body).Decode(&response)
-			if err != nil {
-				return err
-			}
+			log.Println(PrettyStruct(responseBody))
 		}
 
-		if d.HasChange("vms.0.network") {
+		if d.HasChange("vms.0.subnet") {
 			/*
 				POST: api/services/18000000000388/
 				BODY: {
@@ -524,55 +546,46 @@ func resourceServiceUpdate(d *schema.ResourceData, m interface{}) error {
 						"task":"call_automation",
 						"path":"System/Request/ChangeNetworkType",
 						"params":{
-							"dialog_network_profile":"ycz_icdc_base",
-							"new_network_name":"Base" !!! Using only for UI.
+							"dialog_subnet_profile":"ycz_icdc_base",
+							"new_subnet_name":"Base" !!! Using only for UI.
 						}
 					}
 				}
 			*/
 
-			var customButtonRequest CustomButtonRequest
+			var customButtonRequest ChangeNetworkTypeRequest
 			customButtonRequest.Action = "invoke_custom_button"
 			customButtonRequest.Resource.Task = "call_automation"
 			customButtonRequest.Resource.Path = "System/Request/ChangeNetworkType"
-			customButtonRequest.Resource.Params.DialogNetworkProfile = d.Get("vms.0.network").(string)
+			customButtonRequest.Resource.Params.DialogNetworkProfile = d.Get("vms.0.subnet").(string)
 
 			requestBody, err := json.Marshal(customButtonRequest)
 
 			if err != nil {
-				return err
+				return fmt.Errorf("error marhsaling vm subnet request: %w", err)
 			}
 
 			body := bytes.NewBuffer(requestBody)
-			req, err := http.NewRequest("POST", fmt.Sprintf("%s/services/%s", os.Getenv("API_GATEWAY"), d.Id()), body)
-
+			value, err := requestApi("POST", fmt.Sprintf("services/%s", d.Id()), body)
 			if err != nil {
-				return err
+				return fmt.Errorf("error requesting subnet change: %w", err)
 			}
 
-			req.Header.Set("Content-Type", "application/json")
-			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", os.Getenv("AUTH_TOKEN")))
-			req.Header.Set("X_MIQ_GROUP", os.Getenv("AUTH_GROUP"))
-
-			r, err := client.Do(req)
-			if err != nil {
-				return err
+			var responseBody ReconfigurationResponse
+			if err := value.Decode(&responseBody); err != nil {
+				return fmt.Errorf("error decoding subnet change response: %w", err)
 			}
 
-			var response *ServiceRequestResponse
-
-			err = json.NewDecoder(r.Body).Decode(&response)
-			if err != nil {
-				return err
-			}
+			log.Println(PrettyStruct(responseBody))
 		}
 	}
+
+	// wait ? min for disks applyed?
+	// best practise to make read at the end of update
 	return nil
 }
 
 func resourceServiceDelete(d *schema.ResourceData, m interface{}) error {
-	client := &http.Client{Timeout: 100 * time.Second}
-
 	serviceRequest := &ServiceRequest{
 		Action: "request_retire",
 	}
@@ -580,34 +593,159 @@ func resourceServiceDelete(d *schema.ResourceData, m interface{}) error {
 	requestBody, err := json.Marshal(serviceRequest)
 
 	if err != nil {
-		return err
+		return fmt.Errorf("error marhsaling service retire request: %w", err)
 	}
 
 	body := bytes.NewBuffer(requestBody)
 
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/services/%s", os.Getenv("API_GATEWAY"), d.Id()), body)
+	_, err = requestApi("POST", fmt.Sprintf("services/%s", d.Id()), body)
+
 	if err != nil {
-		return err
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", os.Getenv("AUTH_TOKEN")))
-	req.Header.Set("X_MIQ_GROUP", os.Getenv("AUTH_GROUP"))
-
-	r, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-
-	defer r.Body.Close()
-
-	var service *Service
-	err = json.NewDecoder(r.Body).Decode(&service)
-	if err != nil {
-		return err
+		return fmt.Errorf("error requesting service retire: %w", err)
 	}
 
 	d.SetId("")
 
 	return nil
+}
+
+func (vmReconfigureRequest *VmReconfigureRequest) setAdditionalDisksRequest(d *schema.ResourceData) error {
+	o, n := d.GetChange("vms.0.additional_disk")
+	os := o.([]interface{})
+	ns := n.([]interface{})
+	changelog, _ := diff.Diff(o, n)
+
+	// make pretty log
+	log.Println(PrettyStruct(changelog))
+
+	// make request for tags
+	response, err := requestApi("GET", "tags?expand=resources&attributes=classification&filter[]=name='/managed/storage_type/*'", nil)
+	if err != nil {
+		return fmt.Errorf("error requesting storage types: %w", err)
+	}
+
+	var tags *TagsResponse
+	err = response.Decode(&tags)
+	if err != nil {
+		return fmt.Errorf("error decoding tags response: %w", err)
+	}
+
+	// add vars for getting unique path for update
+	var existing_paths = make(map[string]bool)
+	var paths = []string{}
+
+	for _, value := range changelog {
+
+		// if create -> create
+		// if update -> collect unique paths -> destroy and create
+		// if delete -> destroy
+
+		// convert map index path from string to int
+		index, err := strconv.Atoi(value.Path[0])
+		if err != nil {
+			return fmt.Errorf("error converting from string to int: %w", err)
+		}
+		
+		switch value.Type {
+		case "create":
+			new := ns[index].(map[string]interface{})
+
+			diskAdd, err := diskAdd(&new, tags)
+			if err != nil {
+				return fmt.Errorf("error adding disk to request: %w", err)
+			}
+			vmReconfigureRequest.Resource.DiskAdd = append(vmReconfigureRequest.Resource.DiskAdd, diskAdd)
+		case "update":
+			// collect uniq paths
+			if existing_paths[value.Path[0]] {
+				continue
+			}
+			paths = append([]string{value.Path[0]}, paths...)
+			existing_paths[value.Path[0]] = true
+		case "delete":
+			old := os[index].(map[string]interface{})
+
+			diskRemove, err := diskRemove(&old)
+			if err != nil {
+				return fmt.Errorf("error removing disk to request: %w", err)
+			}
+			vmReconfigureRequest.Resource.DiskRemove = append(vmReconfigureRequest.Resource.DiskRemove, diskRemove)
+		}
+	}
+
+	// ToDo: wait for changes applyed or not?
+	for _, path := range paths {
+		index, err := strconv.Atoi(path)
+		if err != nil {
+			return fmt.Errorf("error converting from string to int: %w", err)
+		}
+
+		new := ns[index].(map[string]interface{})
+
+		diskRemove, err := diskRemove(&new)
+		if err != nil {
+			return fmt.Errorf("error removing disk to request: %w", err)
+		}
+		vmReconfigureRequest.Resource.DiskRemove = append([]DiskRemove{diskRemove}, vmReconfigureRequest.Resource.DiskRemove...)
+
+		diskAdd, err := diskAdd(&new, tags)
+		if err != nil {
+			return fmt.Errorf("error adding disk to request: %w", err)
+		}
+		vmReconfigureRequest.Resource.DiskAdd = append([]DiskAdd{diskAdd}, vmReconfigureRequest.Resource.DiskAdd...)
+	}
+
+	return nil
+}
+
+func diskAdd(new *map[string]interface{}, tags *TagsResponse) (DiskAdd, error) {
+	diskType, ok := (*new)["additional_disk_type"].(string)
+	if !ok {
+		return DiskAdd{}, fmt.Errorf("can not read additional disk type")
+	}
+	if !containsTag(tags, diskType) {
+		return DiskAdd{}, fmt.Errorf("disk type is not available")
+	}
+
+	// ToDo: check for simplest types convertion
+	strDiskSize, ok := (*new)["additional_disk_size"].(string)
+	if !ok {
+		return DiskAdd{}, fmt.Errorf("can not read additional disk size")
+	}
+	intDiskSize, err := strconv.Atoi(strDiskSize)
+	if err != nil {
+		return DiskAdd{}, fmt.Errorf("error converting from string to int: %w", err)
+	}
+
+	diskAdd := DiskAdd{
+		StorageType: diskType,
+		Name: "",
+		Type: fmt.Sprintf("/managed/storage_type/%s", diskType),
+		DiskSizeInMb: intDiskSize * (1 << 10),
+	}
+
+	return diskAdd, nil
+}
+
+func diskRemove(old *map[string]interface{}) (DiskRemove, error) {
+	filename, ok := (*old)["filename"].(string)
+	if !ok {
+		return DiskRemove{}, fmt.Errorf("can not read filename of disk")
+	}
+
+	diskRemove := DiskRemove{
+		DiskName: filename,
+	}
+
+	return diskRemove, nil
+}
+
+func containsTag(s *TagsResponse, str string) bool {
+	for _, v := range s.Resources {
+		if v.Name == fmt.Sprintf("/managed/storage_type/%s", str) {
+			return true
+		}
+	}
+
+	return false
 }
