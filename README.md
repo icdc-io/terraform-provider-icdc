@@ -26,7 +26,7 @@
 |||subnet|Name of VM network|string||
 |||additional_disk|A list of additional_disks **(optional)** |list||
 ||||**parameter**|**description**|**type**|
-||||additional_disk_type|Type of additional disk (now avaliable only *nvme*)|string|
+||||additional_disk_type|Type of additional disk |string|
 ||||additional_disk_size|Size of additional disk (in gb)|string|
 |---|---|---|---|---|---|
 |icdc_subnet||||||
