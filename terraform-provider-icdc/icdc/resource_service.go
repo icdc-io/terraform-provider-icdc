@@ -138,7 +138,7 @@ func resourceServiceCreate(d *schema.ResourceData, m interface{}) error {
 	
 	// ToDo: make update? (add other additional disks at the end of create)
 	additional_disk := "f"
-	if (d.Get("vms.0.additional_disk.#") != "0") {
+	if (d.Get("vms.0.additional_disk.#") != 0) {
 		// ToDo: make different APIs endpoints functions
 		// ToDo: add ValidateFunc to schema and change types (string to int) of schema and structs
 		var tags *TagsResponse
