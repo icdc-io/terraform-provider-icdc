@@ -60,6 +60,7 @@
 |username|userid/user email which using to access to cloud|
 |password|user password|
 |location|managed location *(mb will be moved to resources)*|
+|location_number|the number of location *(will be removed in future)*| 
 |account|user account|
 |role|user role|
 |platform|platform name *(icdc/scdc)*|
