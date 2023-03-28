@@ -34,6 +34,12 @@ func Provider() *schema.Provider {
 				Sensitive:   true,
 				DefaultFunc: schema.EnvDefaultFunc("CPV_LOCATION", nil),
 			},
+			"location_number": &schema.Schema{
+				Type:        schema.TypeString,
+				Required:    true,
+				Sensitive:   true,
+				DefaultFunc: schema.EnvDefaultFunc("CPV_LOCATION_NUMBER", nil),
+			},
 			"role": &schema.Schema{
 				Type:        schema.TypeString,
 				Required:    true,
@@ -67,6 +73,7 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 	username := d.Get("username").(string)
 	password := d.Get("password").(string)
 	location := d.Get("location").(string)
+	location_number := d.Get("location_number").(string)
 	account := d.Get("account").(string)
 	role := d.Get("role").(string)
 
@@ -91,6 +98,7 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 	os.Setenv("ROLE", role)
 	os.Setenv("AUTH_TOKEN", jwt.AccessToken)
 	os.Setenv("LOCATION", location)
+	os.Setenv("LOCATION_NUMBER", location_number)
 	os.Setenv("ACCOUNT", account)
 
 	return nil, diags

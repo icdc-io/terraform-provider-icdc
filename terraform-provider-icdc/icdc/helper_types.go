@@ -109,6 +109,13 @@ type ServiceVmProvisonResponse struct {
 	} `json:"vms"`
 }
 
+type DataStoreResponse struct {
+	Id string `json:"id"`
+	Tags []struct {
+		Name string `json:"name"`
+	} `json:"tags"`
+}
+
 type Vm struct {
 	Id       string `json:"id"`
 	Name     string `json:"name"`
@@ -120,6 +127,7 @@ type Vm struct {
 		Id   		 string `json:"id"`
 		Size 		 int    `json:"size"`
 		Filename string `json:"filename"`
+		StorageId string `json:"storage_id"`
 	} `json:"disks"`
 	Network []struct {
 		Name string `json:"name"`

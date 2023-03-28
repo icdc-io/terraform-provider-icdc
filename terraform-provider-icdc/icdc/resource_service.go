@@ -5,12 +5,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 	"github.com/r3labs/diff/v3"
 )
@@ -67,7 +69,7 @@ func resourceService() *schema.Resource {
 						},
 						"additional_disk": {
 							// artemsafonau: i think it will be better to make TypeSet like in AWS
-							Type: schema.TypeList,
+							Type:     schema.TypeList,
 							Optional: true,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
@@ -78,21 +80,10 @@ func resourceService() *schema.Resource {
 									"additional_disk_type": &schema.Schema{
 										Type:     schema.TypeString,
 										Optional: true,
-										/* 
-											ToDo: think about validatefunc and enviromental variables, because
-											ValidateFunc is called with empty env vars (if we want to call requestApi)
-										*/
-										ValidateFunc: func(val any, key string) (warns []string, errs []error) {
-											if tfDiskType := val.(string); tfDiskType != "nvme" {
-												errs = append(errs, fmt.Errorf("%q must be nvme, got: %s", key, tfDiskType))
-											}
-											
-											return
-										},
 									},
 									"additional_disk_size": &schema.Schema{
-										Type:     schema.TypeString,
-										Optional: true,
+										Type:         schema.TypeString,
+										Optional:     true,
 										ValidateFunc: validation.StringIsNotEmpty,
 									},
 									"filename": &schema.Schema{
@@ -135,10 +126,10 @@ func resourceService() *schema.Resource {
 
 func resourceServiceCreate(d *schema.ResourceData, m interface{}) error {
 	vlan := fmt.Sprintf("%s (%s)", d.Get("vms.0.subnet").(string), d.Get("vms.0.subnet").(string))
-	
+
 	// ToDo: make update? (add other additional disks at the end of create)
 	additional_disk := "f"
-	if (d.Get("vms.0.additional_disk.#") != 0) {
+	if d.Get("vms.0.additional_disk.#") != 0 {
 		// ToDo: make different APIs endpoints functions
 		// ToDo: add ValidateFunc to schema and change types (string to int) of schema and structs
 		var tags *TagsResponse
@@ -173,14 +164,14 @@ func resourceServiceCreate(d *schema.ResourceData, m interface{}) error {
 		SshKey:            d.Get("ssh_key").(string),
 		ServiceTemplateId: d.Get("service_template_id").(string),
 		Vms: []VmParams{VmParams{
-			MemoryMb:        		d.Get("vms.0.memory_mb").(string),
-			CpuCores:    		 		d.Get("vms.0.cpu_cores").(string),
-			SystemDiskType:  		d.Get("vms.0.system_disk_type").(string),
-			SystemDiskSize:  		d.Get("vms.0.system_disk_size").(string),
+			MemoryMb:           d.Get("vms.0.memory_mb").(string),
+			CpuCores:           d.Get("vms.0.cpu_cores").(string),
+			SystemDiskType:     d.Get("vms.0.system_disk_type").(string),
+			SystemDiskSize:     d.Get("vms.0.system_disk_size").(string),
 			AdditionalDisk:     additional_disk,
 			AdditionalDiskType: d.Get("vms.0.additional_disk.0.additional_disk_type").(string),
 			AdditionalDiskSize: d.Get("vms.0.additional_disk.0.additional_disk_size").(string),
-			Network:     				vlan,
+			Network:            vlan,
 		},
 		},
 	}
@@ -194,15 +185,15 @@ func resourceServiceCreate(d *schema.ResourceData, m interface{}) error {
 			CoresPerSocket:      service.Vms[0].CpuCores,
 			Hostname:            "generated-hostname",
 			Vlan:                service.Vms[0].Network,
-			SystemDiskType:  		 service.Vms[0].SystemDiskType,
-			SystemDiskSize:  		 service.Vms[0].SystemDiskSize,
-			AdditionalDisk:  		 service.Vms[0].AdditionalDisk,
+			SystemDiskType:      service.Vms[0].SystemDiskType,
+			SystemDiskSize:      service.Vms[0].SystemDiskSize,
+			AdditionalDisk:      service.Vms[0].AdditionalDisk,
 			AdditionalDiskType:  service.Vms[0].AdditionalDiskType,
 			AdditionalDiskSize:  service.Vms[0].AdditionalDiskSize,
 			AuthType:            "key", // ToDo: update for generate-password
 			SshKey:              service.SshKey,
 			ServiceTemplateHref: fmt.Sprintf("/api/service_templates/%s", service.ServiceTemplateId),
-			RegionNumber:        "18",
+			RegionNumber:        os.Getenv("API_GATEWAY"),
 		},
 		},
 	}
@@ -216,7 +207,7 @@ func resourceServiceCreate(d *schema.ResourceData, m interface{}) error {
 
 	// prettystruct for logs
 	log.Println(PrettyStruct(serviceRequest))
-	
+
 	responseBody, err := requestApi("POST", "service_orders/cart/service_requests/", body)
 	if err != nil {
 		return fmt.Errorf("error requesting service: %w", err)
@@ -347,7 +338,7 @@ func resourceServiceRead(d *schema.ResourceData, m interface{}) error {
 	}
 
 	log.Println(PrettyStruct(vms))
-	
+
 	d.SetId(d.Id())
 	return nil
 }
@@ -382,7 +373,7 @@ func flattenVms(vmsList []VmParams, d *schema.ResourceData) []interface{} {
 			vml["memory_mb"] = strconv.Itoa(remoteVm.Hardware.MemoryMb)
 			vml["cpu_cores"] = strconv.Itoa(remoteVm.Hardware.CpuCores)
 			vml["subnet"] = remoteVm.Network[0].Name
-			vml["system_disk_type"] = "nvme"
+			vml["system_disk_type"] = diskType(remoteVm.Disks[0].StorageId) //"nvme"
 			vml["system_disk_size"] = strconv.Itoa(remoteVm.Disks[0].Size / (1 << 30))
 
 			// maybe it will be better to use TypeSet
@@ -404,12 +395,12 @@ func flattenVms(vmsList []VmParams, d *schema.ResourceData) []interface{} {
 						if strDisk2Size == disk1["additional_disk_size"] {
 							included_disk := make(map[string]interface{})
 							included_disk["id"] = disk2.Id
-							included_disk["additional_disk_type"] = "nvme" // disk.type?
+							included_disk["additional_disk_type"] = diskType(disk2.StorageId) //"nvme" // disk.type?
 							included_disk["additional_disk_size"] = strconv.Itoa(disk2.Size)
 							included_disk["filename"] = disk2.Filename
 							disks = append(disks, included_disk)
 							// remove element from remoteVmDisks
-							remoteVm.Disks = append(remoteVm.Disks[:index2], remoteVm.Disks[index2 + 1:]...)
+							remoteVm.Disks = append(remoteVm.Disks[:index2], remoteVm.Disks[index2+1:]...)
 							break
 						}
 					}
@@ -419,7 +410,7 @@ func flattenVms(vmsList []VmParams, d *schema.ResourceData) []interface{} {
 				for _, disk := range remoteVm.Disks {
 					included_disk := make(map[string]interface{})
 					included_disk["id"] = disk.Id
-					included_disk["additional_disk_type"] = "nvme" // disk.type?
+					included_disk["additional_disk_type"] = diskType(disk.StorageId) //"nvme" // disk.type?
 					included_disk["additional_disk_size"] = strconv.Itoa(disk.Size / (1 << 30))
 					included_disk["filename"] = disk.Filename
 					disks = append(disks, included_disk)
@@ -435,6 +426,34 @@ func flattenVms(vmsList []VmParams, d *schema.ResourceData) []interface{} {
 	}
 
 	return make([]interface{}, 0)
+}
+
+func diskType(storageId string) string {
+	var datastoreResponse DataStoreResponse
+
+	responseBody, err := requestApi("GET", fmt.Sprintf("data_stores/%s?attributes=tags", storageId), nil)
+
+	if err != nil {
+		return ""
+	}
+
+	err = responseBody.Decode(&datastoreResponse)
+	if err != nil {
+		return ""
+	}
+
+	storageType := ""
+
+	tags := datastoreResponse.Tags
+
+	for _, tag := range tags {
+		if strings.HasPrefix(tag.Name, "/managed/storage_type") {
+			parts := strings.Split(tag.Name, "/")
+			storageType = parts[len(parts)-1]
+			break
+		}
+	}
+	return storageType
 }
 
 func resourceServiceUpdate(d *schema.ResourceData, m interface{}) error {
@@ -499,10 +518,10 @@ func resourceServiceUpdate(d *schema.ResourceData, m interface{}) error {
 
 			if d.HasChange("vms.0.additional_disk") {
 				/*
-						artemsafonau" IT MUST BE REFACTORED
-						need to use TypeSet because of order of disks?
-						change storage type logic in future version
-						is it needed to wait for changes applyed?
+					artemsafonau" IT MUST BE REFACTORED
+					need to use TypeSet because of order of disks?
+					change storage type logic in future version
+					is it needed to wait for changes applyed?
 				*/
 
 				// ToDo: aws check backups for notification
@@ -645,7 +664,7 @@ func (vmReconfigureRequest *VmReconfigureRequest) setAdditionalDisksRequest(d *s
 		if err != nil {
 			return fmt.Errorf("error converting from string to int: %w", err)
 		}
-		
+
 		switch value.Type {
 		case "create":
 			new := ns[index].(map[string]interface{})
@@ -718,9 +737,9 @@ func diskAdd(new *map[string]interface{}, tags *TagsResponse) (DiskAdd, error) {
 	}
 
 	diskAdd := DiskAdd{
-		StorageType: diskType,
-		Name: "",
-		Type: fmt.Sprintf("/managed/storage_type/%s", diskType),
+		StorageType:  diskType,
+		Name:         "",
+		Type:         fmt.Sprintf("/managed/storage_type/%s", diskType),
 		DiskSizeInMb: intDiskSize * (1 << 10),
 	}
 
