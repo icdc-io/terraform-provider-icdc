@@ -11,6 +11,7 @@ provider "icdc" {
   username = ""
   password = ""
   location = ""
+  location_number = ""
   account = ""
   role = ""
   platform = ""
