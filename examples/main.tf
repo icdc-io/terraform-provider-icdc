@@ -8,53 +8,24 @@ terraform {
 }
 
 provider "icdc" {
-  username = ""
-  password = ""
-  location = ""
-  account = ""
-  role = ""
-  platform = ""
+    username = "ahrechushkin@ibagroup.eu"
+    location = "zby"
+    auth_group = "icdc.member"
 }
 
-resource "icdc_service" "composite-resource" {
-  name = "tf-resource"
-  service_template_id = "18000000000035"
-  ssh_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDU2ixuBrQNH/XeWowxh4CeAjvlkT0Pnz6+GWu1UyJR7/N5TC2DF4cFp4EKWdSxkxKmVg8DUBgsUNJofpDfDJLcwP+kKpYEEiMT4VL4FnPZzDD0hbUbfzaBQCUNtJRHLT91qkysOgm08jaFUlWTI6JhaybVowmpiD0nv1UQW98SKzrVYMXxDv1PSAvESJG8YyQ0zf/RslwaHyiyiqm5uLHoXHEO77ddNkRB5e3meQKiIwEr1f0BjUVgh+kINSlOQLl3euDHaniBAbt6qPOtFHSYXs993rqK3TRN180nigfdSGoJc6FrWF7MiuFC4lUmnk2MzFdGM0TWU/1eniQ0WxfE/lUMI4bIa813+z43cllOvQQitxIgVFRWtJsKm6Lbnw20ioT34rrKKWxHYCI5JvrA7vx39IsgrbFsU952BXOTLVvMPUVGyQYTwIRkmPlJ2GHyicDTBUYv7FGFjVz7gw7ZCIH5HNWSn+57rUdJVzZV+eUM8mrfkPnDOQniRxbnnkk= ahrechushkin@hrechushkin-av"
+resource icdc_service tf_srv3 {
+  name = "tf_srv3"
+  service_template_id = "26000000000009"
+  ssh_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDYW/MTYTUGvoFrvPZNJwDGMx6i81VPHVLAb28HSVLG1zQVCZCKk80lqUqU0lRNSyCxQYoCTHl0e1IUnNR0tVxyYzDU88VpZMDaGvxND2Gcpv+UwpE6vJseiScSrRkW2VSEbBYD9joscysSsm6BAM3gb8oR6WBbzRb5C8X2Hz5jmlXqVMEK2qJU565OJa7BkzcvIcD/0swjcG6cjOMFoiwWpP/j9qELFxrdU5lbM82ucmv8YnZ3MzS2RrwHpV+TqhDuVP6+TjkCW1gswUU6HQK6d91O63nJZT2cQmQzjumGRfJ3U08zowSS6dJWv3e+/7zKI/Ylcy06qnpqrnYI7gkgQWdNpfLX5mfx33aYIyN0GYIytahDDhXOnVCdF+nHg+02mNmglB28KwTlK1LYRuBiAtxesTU2C33pOV3GS16Z+EmhgqtYiI0W+ryvl6pmpqyzrQ13fHOQuaKvYZpCQd9GtDZwkyB0zdqQd6n++b1K1Fq9Y2CDOOnD/4PrEoprTnU= ahrechushkin@workstation"
   vms {
-    cpu_cores = "4"
-    memory_mb = "8192"
-    storage_type = "nvme"
-    storage_mb = "30"
-    subnet = "ycz_icdc_base"
+    cpu_cores = "1"
+    memory_mb = "2024"
+    system_disk_type = "nvme"
+    system_disk_size = "30"
+    subnet = "zby_icdc_base"
   }
 }
 
-resource "icdc_service" "api-1" {
-  name = "tf-api-1"
-  service_template_id = "18000000000025"
-  ssh_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDU2ixuBrQNH/XeWowxh4CeAjvlkT0Pnz6+GWu1UyJR7/N5TC2DF4cFp4EKWdSxkxKmVg8DUBgsUNJofpDfDJLcwP+kKpYEEiMT4VL4FnPZzDD0hbUbfzaBQCUNtJRHLT91qkysOgm08jaFUlWTI6JhaybVowmpiD0nv1UQW98SKzrVYMXxDv1PSAvESJG8YyQ0zf/RslwaHyiyiqm5uLHoXHEO77ddNkRB5e3meQKiIwEr1f0BjUVgh+kINSlOQLl3euDHaniBAbt6qPOtFHSYXs993rqK3TRN180nigfdSGoJc6FrWF7MiuFC4lUmnk2MzFdGM0TWU/1eniQ0WxfE/lUMI4bIa813+z43cllOvQQitxIgVFRWtJsKm6Lbnw20ioT34rrKKWxHYCI5JvrA7vx39IsgrbFsU952BXOTLVvMPUVGyQYTwIRkmPlJ2GHyicDTBUYv7FGFjVz7gw7ZCIH5HNWSn+57rUdJVzZV+eUM8mrfkPnDOQniRxbnnkk= ahrechushkin@hrechushkin-av"
-  vms {
-    cpu_cores = "2"
-    memory_mb = "4096"
-    storage_type = "nvme"
-    storage_mb = "30"
-    subnet = "ycz_icdc_base"
-  }
-}
-
-resource "icdc_service" "db-1" {
-  name = "tf-db-1"
-  service_template_id = "18000000000025"
-  ssh_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDU2ixuBrQNH/XeWowxh4CeAjvlkT0Pnz6+GWu1UyJR7/N5TC2DF4cFp4EKWdSxkxKmVg8DUBgsUNJofpDfDJLcwP+kKpYEEiMT4VL4FnPZzDD0hbUbfzaBQCUNtJRHLT91qkysOgm08jaFUlWTI6JhaybVowmpiD0nv1UQW98SKzrVYMXxDv1PSAvESJG8YyQ0zf/RslwaHyiyiqm5uLHoXHEO77ddNkRB5e3meQKiIwEr1f0BjUVgh+kINSlOQLl3euDHaniBAbt6qPOtFHSYXs993rqK3TRN180nigfdSGoJc6FrWF7MiuFC4lUmnk2MzFdGM0TWU/1eniQ0WxfE/lUMI4bIa813+z43cllOvQQitxIgVFRWtJsKm6Lbnw20ioT34rrKKWxHYCI5JvrA7vx39IsgrbFsU952BXOTLVvMPUVGyQYTwIRkmPlJ2GHyicDTBUYv7FGFjVz7gw7ZCIH5HNWSn+57rUdJVzZV+eUM8mrfkPnDOQniRxbnnkk= ahrechushkin@hrechushkin-av"
-  vms {
-    cpu_cores = "2"
-    memory_mb = "2048"
-    storage_type = "nvme"
-    storage_mb = "30"
-    subnet = "ycz_icdc_base"
-  }
-}
-
-resource "icdc_security_group" "myfw" {
-  name = "myfw"
+resource "icdc_security_group" "tf_fw" {
+  name = "tf_fw"
 }

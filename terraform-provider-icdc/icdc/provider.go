@@ -4,11 +4,13 @@ import (
 	"context"
 
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -20,43 +22,25 @@ func Provider() *schema.Provider {
 			"username": &schema.Schema{
 				Type:        schema.TypeString,
 				Required:    true,
-				DefaultFunc: schema.EnvDefaultFunc("CPV_USERNAME", nil),
+				DefaultFunc: schema.EnvDefaultFunc("ICDC_USERNAME", nil),
 			},
 			"password": &schema.Schema{
 				Type:        schema.TypeString,
 				Required:    true,
 				Sensitive:   true,
-				DefaultFunc: schema.EnvDefaultFunc("CPV_PASSWORD", nil),
+				DefaultFunc: schema.EnvDefaultFunc("ICDC_PASSWORD", nil),
 			},
 			"location": &schema.Schema{
 				Type:        schema.TypeString,
 				Required:    true,
 				Sensitive:   true,
-				DefaultFunc: schema.EnvDefaultFunc("CPV_LOCATION", nil),
+				DefaultFunc: schema.EnvDefaultFunc("ICDC_LOCATION", nil),
 			},
-			"location_number": &schema.Schema{
+			"auth_group": &schema.Schema{
 				Type:        schema.TypeString,
 				Required:    true,
 				Sensitive:   true,
-				DefaultFunc: schema.EnvDefaultFunc("CPV_LOCATION_NUMBER", nil),
-			},
-			"role": &schema.Schema{
-				Type:        schema.TypeString,
-				Required:    true,
-				Sensitive:   true,
-				DefaultFunc: schema.EnvDefaultFunc("CPV_ROLE", nil),
-			},
-			"platform": &schema.Schema{
-				Type:        schema.TypeString,
-				Required:    true,
-				Sensitive:   true,
-				DefaultFunc: schema.EnvDefaultFunc("CPV_NAME", nil),
-			},
-			"account": &schema.Schema{
-				Type:        schema.TypeString,
-				Required:    true,
-				Sensitive:   true,
-				DefaultFunc: schema.EnvDefaultFunc("CPV_ACCOUNT", nil),
+				DefaultFunc: schema.EnvDefaultFunc("ICDC_AUTH_GROUP", nil),
 			},
 		},
 		ResourcesMap: map[string]*schema.Resource{
@@ -73,13 +57,19 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 	username := d.Get("username").(string)
 	password := d.Get("password").(string)
 	location := d.Get("location").(string)
-	location_number := d.Get("location_number").(string)
-	account := d.Get("account").(string)
-	role := d.Get("role").(string)
+	auth_group := d.Get("auth_group").(string)
+
+	auth_server := "login.icdc.io"
+
+	if location == "zby" || location == "xby" || location == "dby" {
+		auth_server = "login.scdc.io"
+	} else if location == "dby" {
+		auth_server = "keycloak18-login.icdc.d3.zby.icdc.io"
+	}
 
 	var diags diag.Diagnostics
 
-	var url = fmt.Sprintf("https://login.%s.io/auth/realms/master/protocol/openid-connect/token", d.Get("platform").(string))
+	var url = fmt.Sprintf("https://%s/auth/realms/master/protocol/openid-connect/token", auth_server)
 	var buf = []byte("username=" + username + "&password=" + password + "&client_id=insights&grant_type=password")
 	var jwt JwtToken
 	resp, _ := http.Post(url, "application/x-www-form-urlencoded", bytes.NewBuffer(buf))
@@ -92,14 +82,46 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 		return nil, diags
 	}
 
-	gateway_url := fmt.Sprintf("https://api.%s.icdc.io/api/compute/v1", location)
+	account := strings.Split(auth_group, ".")[0]
+	role := strings.Split(auth_group, ".")[1]
+
+	gateway_url := findGatewayUrl(jwt.AccessToken, location)
 
 	os.Setenv("API_GATEWAY", gateway_url)
 	os.Setenv("ROLE", role)
 	os.Setenv("AUTH_TOKEN", jwt.AccessToken)
 	os.Setenv("LOCATION", location)
-	os.Setenv("LOCATION_NUMBER", location_number)
 	os.Setenv("ACCOUNT", account)
 
 	return nil, diags
+}
+
+type IcdcClaims struct {
+	External struct {
+		Locations map[string]string `json:"locations"`
+	} `json:"external"`
+}
+
+func findGatewayUrl(token string, location string) string {
+
+	base64TokenClaims := strings.Split(token, ".")[1]
+
+	base64TokenClaims += strings.Repeat("=", ((4 - len(base64TokenClaims)%4) % 4))
+
+	fmt.Println(base64TokenClaims)
+	rawClaims, err := base64.StdEncoding.DecodeString(base64TokenClaims)
+
+	if err != nil {
+		panic(err)
+	}
+
+	var icdcClaims IcdcClaims
+
+	err = json.Unmarshal(rawClaims, &icdcClaims)
+
+	if err != nil {
+		panic(err)
+	}
+
+	return icdcClaims.External.Locations[location]
 }

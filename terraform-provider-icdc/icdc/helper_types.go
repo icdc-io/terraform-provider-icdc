@@ -12,6 +12,7 @@ type JwtToken struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
+
 // Service structures
 type Service struct {
 	ID                string `json:"id"`
@@ -22,31 +23,31 @@ type Service struct {
 }
 
 type VmParams struct {
-	ID          			 string `json:"id"`
-	Name        			 string `json:"name"`
-	MemoryMb     			 string `json:"memory_mb"`
-	CpuCores    			 string `json:"cpu_cores"`
-	SystemDiskType 		 string `json:"system_disk_type"`
-	SystemDiskSize   	 string `json:"system_disk_size"`
+	ID             string `json:"id"`
+	Name           string `json:"name"`
+	MemoryMb       string `json:"memory_mb"`
+	CpuCores       string `json:"cpu_cores"`
+	SystemDiskType string `json:"system_disk_type"`
+	SystemDiskSize string `json:"system_disk_size"`
 	// mb change
-	AdditionalDisk 		 string `json:"additional_disk"`
+	AdditionalDisk     string `json:"additional_disk"`
 	AdditionalDiskType string `json:"additional_disk_type"`
 	AdditionalDiskSize string `json:"additional_disk_size"`
-	Network     			 string `json:"network"`
+	Network            string `json:"network"`
 }
 
 type VmParamsForRead struct {
-	ID          			 string `json:"id"`
-	Name        			 string `json:"name"`
-	MemoryMb     			 string `json:"memory_mb"`
-	CpuCores    			 string `json:"cpu_cores"`
-	SystemDiskType 		 string `json:"system_disk_type"`
-	SystemDiskSize   	 string `json:"system_disk_size"`
+	ID             string `json:"id"`
+	Name           string `json:"name"`
+	MemoryMb       string `json:"memory_mb"`
+	CpuCores       string `json:"cpu_cores"`
+	SystemDiskType string `json:"system_disk_type"`
+	SystemDiskSize string `json:"system_disk_size"`
 	AdditionalDisk []struct {
 		AdditionalDiskType string `json:"additional_disk_type"`
 		AdditionalDiskSize string `json:"additional_disk_size"`
 	} `json:"additional_disk"`
-	Subnet     			 	 string `json:"network"`
+	Subnet string `json:"network"`
 }
 
 type ServiceResources struct {
@@ -56,16 +57,16 @@ type ServiceResources struct {
 	CoresPerSocket      string `json:"cores_per_socket"`
 	Hostname            string `json:"hostname"`
 	Vlan                string `json:"vlan"`
-	SystemDiskType 			string `json:"system_disk_type"`
-	SystemDiskSize   		string `json:"system_disk_size"`
-	AdditionalDisk			string `json:"additional_disk"`
-	AdditionalDiskType 	string `json:"additional_disk_type"`
+	SystemDiskType      string `json:"system_disk_type"`
+	SystemDiskSize      string `json:"system_disk_size"`
+	AdditionalDisk      string `json:"additional_disk"`
+	AdditionalDiskType  string `json:"additional_disk_type"`
 	AdditionalDiskSize  string `json:"additional_disk_size"`
 	AuthType            string `json:"auth_type"`
 	Adminpassword       string `json:"adminpassword"`
 	SshKey              string `json:"ssh_key"`
 	ServiceTemplateHref string `json:"service_template_href"`
-	RegionNumber        string `json:"region_number"`
+//	RegionNumber        string `json:"region_number"`
 }
 
 type ServiceRequest struct {
@@ -83,6 +84,8 @@ type ServiceRequestResponse struct {
 	} `json:"results"`
 }
 
+
+
 type ServiceMiqRequest struct {
 	MiqRequestTasks []struct {
 		DestinationId   string `json:"destination_id"`
@@ -90,27 +93,26 @@ type ServiceMiqRequest struct {
 	} `json:"miq_request_tasks"`
 }
 
-
 type TagsResponse struct {
-	Name string `json:"name"`
+	Name      string `json:"name"`
 	Resources []struct {
 		Name string `json:"name"`
 	} `json:"resources"`
 }
 
 type ServiceVmProvisonResponse struct {
-	Id 						 string `json:"id"`
-	Name 					 string `json:"name"`
+	Id             string `json:"id"`
+	Name           string `json:"name"`
 	LifecycleState string `json:"lifecycle_state"`
-	Vms []struct {
+	Vms            []struct {
 		Href string `json:"href"`
-		Id 	 string `json:"id"`
+		Id   string `json:"id"`
 		Name string `json:"name"`
 	} `json:"vms"`
 }
 
 type DataStoreResponse struct {
-	Id string `json:"id"`
+	Id   string `json:"id"`
 	Tags []struct {
 		Name string `json:"name"`
 	} `json:"tags"`
@@ -124,9 +126,9 @@ type Vm struct {
 		CpuCores int `json:"cpu_total_cores"`
 	} `json:"hardware"`
 	Disks []struct {
-		Id   		 string `json:"id"`
-		Size 		 int    `json:"size"`
-		Filename string `json:"filename"`
+		Id        string `json:"id"`
+		Size      int    `json:"size"`
+		Filename  string `json:"filename"`
 		StorageId string `json:"storage_id"`
 	} `json:"disks"`
 	Network []struct {
@@ -138,24 +140,24 @@ type Vm struct {
 type VmReconfigureRequest struct {
 	Action   string `json:"action"`
 	Resource struct {
-		CoresPerSocket  string `json:"cores_per_socket"`
-		DiskAdd					[]DiskAdd `json:"disk_add,omitempty"`
-		DiskRemove			[]DiskRemove `json:"disk_remove,omitempty"`
-		NumberOfCpus    string `json:"number_of_cpus"`
-		NumberOfSockets string `json:"number_of_sockets"`
-		RequestType     string `json:"request_type"`
-		VmMemory        string `json:"vm_memory"`
+		CoresPerSocket  string       `json:"cores_per_socket"`
+		DiskAdd         []DiskAdd    `json:"disk_add,omitempty"`
+		DiskRemove      []DiskRemove `json:"disk_remove,omitempty"`
+		NumberOfCpus    string       `json:"number_of_cpus"`
+		NumberOfSockets string       `json:"number_of_sockets"`
+		RequestType     string       `json:"request_type"`
+		VmMemory        string       `json:"vm_memory"`
 	} `json:"resource"`
 }
 
 type DiskAdd struct {
-	DiskSizeInMb int `json:"disk_size_in_mb"`
-	Name 				 string `json:"name"`
+	DiskSizeInMb int    `json:"disk_size_in_mb"`
+	Name         string `json:"name"`
 	StorageType  string `json:"storage_type"`
-	Type 				 string `json:"type"`
+	Type         string `json:"type"`
 }
 
-type DiskRemove	struct {
+type DiskRemove struct {
 	DiskName string `json:"disk_name"`
 }
 
@@ -304,7 +306,7 @@ type TaskResponse struct {
 
 // Response structures
 type ReconfigurationResponse struct {
-	Success bool 	 `json:"success"`
+	Success bool   `json:"success"`
 	Message string `json:"message"`
-	Href 		string `json:"href"`
+	Href    string `json:"href"`
 }
