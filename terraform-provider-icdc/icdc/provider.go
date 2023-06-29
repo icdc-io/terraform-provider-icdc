@@ -36,6 +36,12 @@ func Provider() *schema.Provider {
 				Sensitive:   true,
 				DefaultFunc: schema.EnvDefaultFunc("ICDC_LOCATION", nil),
 			},
+			"auth_server": &schema.Schema{
+				Type:				schema.TypeString,
+				Optional: 	true,
+				Sensitive: 	true,
+				Default: 		"login.icdc.io",
+			},
 			"auth_group": &schema.Schema{
 				Type:        schema.TypeString,
 				Required:    true,
@@ -58,14 +64,7 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 	password := d.Get("password").(string)
 	location := d.Get("location").(string)
 	auth_group := d.Get("auth_group").(string)
-
-	auth_server := "login.icdc.io"
-
-	if location == "zby" || location == "xby" || location == "dby" {
-		auth_server = "login.scdc.io"
-	} else if location == "dby" {
-		auth_server = "keycloak18-login.icdc.d3.zby.icdc.io"
-	}
+	auth_server := d.Get("auth_server").(string)
 
 	var diags diag.Diagnostics
 
