@@ -49,16 +49,9 @@ func resourceSubnet() *schema.Resource {
 				Type:     schema.TypeString,
 				Required: true,
 			},
-			"ip_version": &schema.Schema{
-				Type:     schema.TypeInt,
+			"dns_nameserver": &schema.Schema{
+				Type:     schema.TypeString,
 				Required: true,
-			},
-			"dns_nameservers": &schema.Schema{
-				Type:     schema.TypeList,
-				Required: true,
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
-				},
 			},
 			"network_router_id": &schema.Schema{
 				Type:     schema.TypeString,
@@ -69,7 +62,7 @@ func resourceSubnet() *schema.Resource {
 }
 
 func resourceSubnetRead(d *schema.ResourceData, m interface{}) error {
-	responseBody, err := requestApi("GET", fmt.Sprintf("cloud_subnets/%s?expand=resources", d.Id()), nil)
+	responseBody, err := requestApi("GET", fmt.Sprintf("api/compute/v1/cloud_subnets/%s?expand=resources", d.Id()), nil)
 
 	if err != nil {
 		return err
@@ -119,19 +112,19 @@ func resourceSubnetRead(d *schema.ResourceData, m interface{}) error {
 		return err
 	}
 
-	err = d.Set("ip_version", subnet.IpVersion)
-
-	if err != nil {
-		return err
-	}
-
 	err = d.Set("network_protocol", subnet.NetworkProtocol)
 
 	if err != nil {
 		return err
 	}
 
-	err = d.Set("dns_nameservers", subnet.DnsNameservers)
+	dnsNameserver := ""
+
+	if len(subnet.DnsNameservers) > 0 {
+		dnsNameserver = subnet.DnsNameservers[0]
+	}
+
+	err = d.Set("dns_nameserver", dnsNameserver)
 
 	if err != nil {
 		return err
@@ -148,7 +141,7 @@ func resourceSubnetRead(d *schema.ResourceData, m interface{}) error {
 
 func resourceSubnetCreate(d *schema.ResourceData, m interface{}) error {
 	var emsProvider *EmsProvider
-	responseBody, err := requestApi("GET", "providers?expand=resources&filter[]=type=ManageIQ::Providers::Redhat::NetworkManager", nil)
+	responseBody, err := requestApi("GET", "api/compute/v1/providers?expand=resources&filter[]=type=ManageIQ::Providers::Redhat::NetworkManager", nil)
 
 	if err != nil {
 		return err
@@ -162,32 +155,28 @@ func resourceSubnetCreate(d *schema.ResourceData, m interface{}) error {
 
 	emsProviderId := emsProvider.Resources[0].Id
 
-	/*
-		ahrechushkin:
-		 workaround
-		 https://stackoverflow.com/questions/72402307/interface-conversion-error-while-sending-the-payload-for-post-request-custom-t
-	*/
 
-	dnsNameservers := d.Get("dns_nameservers").([]interface{})
-	dns := make([]string, len(dnsNameservers))
+	dnsNameserver := d.Get("dns_nameserver").(string)
+	dnsNameservers := []string{ dnsNameserver }
 
-	for _, dnsNameserver := range dnsNameservers {
-		if dnsNameserver != "" {
-			dns = append(dns, dnsNameserver.(string))
-		}
+
+	ipVersion := 4
+
+	if d.Get("network_protocol") == "ipv6" {
+		ipVersion = 6
 	}
 
-	// end workaround
+
 
 	cloudNetworkRaw := &CloudNetworkRequest{
 		Action: "create",
 		Name:   d.Get("name").(string),
 		Subnet: SubnetCreateBody{
 			Cidr:            d.Get("cidr").(string),
-			IpVersion:       d.Get("ip_version").(int),
+			IpVersion:       ipVersion,
 			NetworkProtocol: d.Get("network_protocol").(string),
 			Name:            d.Get("name").(string),
-			DnsNameservers:  dns,
+			DnsNameservers:  dnsNameservers,
 		},
 	}
 
@@ -201,7 +190,7 @@ func resourceSubnetCreate(d *schema.ResourceData, m interface{}) error {
 
 	var response *ServiceRequestResponse
 
-	responseBody, err = requestApi("POST", fmt.Sprintf("providers/%s/cloud_networks", emsProviderId), body)
+	responseBody, err = requestApi("POST", fmt.Sprintf("api/compute/v1/providers/%s/cloud_networks", emsProviderId), body)
 
 	if err != nil {
 		return err
@@ -215,7 +204,7 @@ func resourceSubnetCreate(d *schema.ResourceData, m interface{}) error {
 
 	var networkCollection *NetworkCollection
 
-	responseBody, err = requestApi("GET", "cloud_networks?expand=resources&attributes=cloud_subnets", nil)
+	responseBody, err = requestApi("GET", "api/compute/v1/cloud_networks?expand=resources&attributes=cloud_subnets", nil)
 
 	if err != nil {
 		return err
@@ -285,7 +274,7 @@ func resourceSubnetDelete(d *schema.ResourceData, m interface{}) error {
 
 	body := bytes.NewBuffer(requestBody)
 
-	_, err = requestApi("POST", fmt.Sprintf("providers/%s/cloud_networks", d.Get("ems_id").(string)), body)
+	_, err = requestApi("POST", fmt.Sprintf("api/compute/v1/providers/%s/cloud_networks", d.Get("ems_id").(string)), body)
 
 	if err != nil {
 		return err
