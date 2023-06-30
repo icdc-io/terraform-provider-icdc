@@ -54,7 +54,9 @@ func Provider() *schema.Provider {
 			"icdc_subnet":         resourceSubnet(),
 			"icdc_security_group": resourceSecurityGroup(),
 		},
-		DataSourcesMap:       map[string]*schema.Resource{},
+		DataSourcesMap:       map[string]*schema.Resource{
+			"icdc_template": dataSourceICDCTemplate(),
+		},
 		ConfigureContextFunc: providerConfigure,
 	}
 }
@@ -63,12 +65,12 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 	username := d.Get("username").(string)
 	password := d.Get("password").(string)
 	location := d.Get("location").(string)
-	auth_group := d.Get("auth_group").(string)
-	auth_server := d.Get("auth_server").(string)
+	authGroup := d.Get("auth_group").(string)
+	authServer := d.Get("auth_server").(string)
 
 	var diags diag.Diagnostics
 
-	var url = fmt.Sprintf("https://%s/auth/realms/master/protocol/openid-connect/token", auth_server)
+	var url = fmt.Sprintf("https://%s/auth/realms/master/protocol/openid-connect/token", authServer)
 	var buf = []byte("username=" + username + "&password=" + password + "&client_id=insights&grant_type=password")
 	var jwt JwtToken
 	resp, _ := http.Post(url, "application/x-www-form-urlencoded", bytes.NewBuffer(buf))
@@ -81,12 +83,12 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 		return nil, diags
 	}
 
-	account := strings.Split(auth_group, ".")[0]
-	role := strings.Split(auth_group, ".")[1]
+	account := strings.Split(authGroup, ".")[0]
+	role := strings.Split(authGroup, ".")[1]
 
-	gateway_url := findGatewayUrl(jwt.AccessToken, location)
+	gatewayUrl := findGatewayUrl(jwt.AccessToken, location)
 
-	os.Setenv("API_GATEWAY", gateway_url)
+	os.Setenv("API_GATEWAY", gatewayUrl)
 	os.Setenv("ROLE", role)
 	os.Setenv("AUTH_TOKEN", jwt.AccessToken)
 	os.Setenv("LOCATION", location)
