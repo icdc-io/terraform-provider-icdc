@@ -22,31 +22,31 @@ type Service struct {
 }
 
 type VmParams struct {
-	ID          			 string `json:"id"`
-	Name        			 string `json:"name"`
-	MemoryMb     			 string `json:"memory_mb"`
-	CpuCores    			 string `json:"cpu_cores"`
-	SystemDiskType 		 string `json:"system_disk_type"`
-	SystemDiskSize   	 string `json:"system_disk_size"`
+	ID             string `json:"id"`
+	Name           string `json:"name"`
+	MemoryMb       string `json:"memory_mb"`
+	CpuCores       string `json:"cpu_cores"`
+	SystemDiskType string `json:"system_disk_type"`
+	SystemDiskSize string `json:"system_disk_size"`
 	// mb change
-	AdditionalDisk 		 string `json:"additional_disk"`
+	AdditionalDisk     string `json:"additional_disk"`
 	AdditionalDiskType string `json:"additional_disk_type"`
 	AdditionalDiskSize string `json:"additional_disk_size"`
-	Network     			 string `json:"network"`
+	Network            string `json:"network"`
 }
 
 type VmParamsForRead struct {
-	ID          			 string `json:"id"`
-	Name        			 string `json:"name"`
-	MemoryMb     			 string `json:"memory_mb"`
-	CpuCores    			 string `json:"cpu_cores"`
-	SystemDiskType 		 string `json:"system_disk_type"`
-	SystemDiskSize   	 string `json:"system_disk_size"`
+	ID             string `json:"id"`
+	Name           string `json:"name"`
+	MemoryMb       string `json:"memory_mb"`
+	CpuCores       string `json:"cpu_cores"`
+	SystemDiskType string `json:"system_disk_type"`
+	SystemDiskSize string `json:"system_disk_size"`
 	AdditionalDisk []struct {
 		AdditionalDiskType string `json:"additional_disk_type"`
 		AdditionalDiskSize string `json:"additional_disk_size"`
 	} `json:"additional_disk"`
-	Subnet     			 	 string `json:"network"`
+	Network string `json:"network"`
 }
 
 type ServiceResources struct {
@@ -56,10 +56,10 @@ type ServiceResources struct {
 	CoresPerSocket      string `json:"cores_per_socket"`
 	Hostname            string `json:"hostname"`
 	Vlan                string `json:"vlan"`
-	SystemDiskType 			string `json:"system_disk_type"`
-	SystemDiskSize   		string `json:"system_disk_size"`
-	AdditionalDisk			string `json:"additional_disk"`
-	AdditionalDiskType 	string `json:"additional_disk_type"`
+	SystemDiskType      string `json:"system_disk_type"`
+	SystemDiskSize      string `json:"system_disk_size"`
+	AdditionalDisk      string `json:"additional_disk"`
+	AdditionalDiskType  string `json:"additional_disk_type"`
 	AdditionalDiskSize  string `json:"additional_disk_size"`
 	AuthType            string `json:"auth_type"`
 	Adminpassword       string `json:"adminpassword"`
@@ -83,6 +83,86 @@ type ServiceRequestResponse struct {
 	} `json:"results"`
 }
 
+type NetworkRequestResponse struct {
+	Id                  string `json:"id"`
+	Name                string `json:"name"`
+	TenantId            string `json:"tenant_id"`
+	Status              string `json:"status"`
+	PortSecurityEnabled string `json:"port_security_enabled"`
+	Mtu                 string `json:"mtu"`
+	Subnet              []struct {
+		Id               string `json:"id"`
+		Name             string `json:"name"`
+		NetworkId        string `json:"network_id"`
+		Cidr             string `json:"cidr"`
+		GatewayIp        string `json:"gateway_ip"`
+		EnableDhcp       string `json:"enable_dhcp"`
+		IpVersion        int    `json:"ip_version"`
+		TenantId         string `json:"tenant_id"`
+		RouterId         string `json:"router_id"`
+		allocation_pools []struct {
+			Start string `json:"start"`
+			Stop  string `json:"stop"`
+		}
+		DnsNameservers []string `json:"dns_nameservers"`
+	} `json:"subnet"`
+	Ports []struct {
+		Id            string   `json:"id"`
+		Name          string   `json:"name"`
+		NetworkId     string   `json:"network_id"`
+		MacAddress    string   `json:"mac_address"`
+		AdminStateUp  string   `json:"admin_state_up"`
+		DeviceId      string   `json:"device_id"`
+		DeviceOwner   string   `json:"device_owner"`
+		FixedIps      string   `json:"fixed_ips"`
+		SecuriyGroups []string `json:"security_groups"`
+		Type          string   `json:"type"`
+	} `json:"ports"`
+}
+
+type NetworkUpdateResponse struct {
+	Id                  string `json:"id"`
+	Name                string `json:"name"`
+	TenantId            string `json:"tenant_id"`
+	Status              string `json:"status"`
+	PortSecurityEnabled string `json:"port_security_enabled"`
+	Mtu                 string `json:"mtu"`
+	Subnet              struct {
+		Id               string `json:"id"`
+		Name             string `json:"name"`
+		NetworkId        string `json:"network_id"`
+		Cidr             string `json:"cidr"`
+		GatewayIp        string `json:"gateway_ip"`
+		EnableDhcp       string `json:"enable_dhcp"`
+		IpVersion        int    `json:"ip_version"`
+		TenantId         string `json:"tenant_id"`
+		RouterId         string `json:"router_id"`
+		allocation_pools struct {
+			Start string `json:"start"`
+			Stop  string `json:"stop"`
+		}
+		DnsNameservers []string `json:"dns_nameservers"`
+		Metadata       struct {
+			TenantId string `json:"tenant_id"`
+		}
+	} `json:"subnet"`
+	Ports []struct {
+		Id            string   `json:"id"`
+		Name          string   `json:"name"`
+		NetworkId     string   `json:"network_id"`
+		MacAddress    string   `json:"mac_address"`
+		AdminStateUp  string   `json:"admin_state_up"`
+		DeviceId      string   `json:"device_id"`
+		DeviceOwner   string   `json:"device_owner"`
+		FixedIps      string   `json:"fixed_ips"`
+		SecuriyGroups []string `json:"security_groups"`
+		Type          string   `json:"type"`
+	} `json:"ports"`
+	Metadata struct {
+		TenantId string `json:"tenant_id"`
+	}
+}
+
 type ServiceMiqRequest struct {
 	MiqRequestTasks []struct {
 		DestinationId   string `json:"destination_id"`
@@ -90,27 +170,26 @@ type ServiceMiqRequest struct {
 	} `json:"miq_request_tasks"`
 }
 
-
 type TagsResponse struct {
-	Name string `json:"name"`
+	Name      string `json:"name"`
 	Resources []struct {
 		Name string `json:"name"`
 	} `json:"resources"`
 }
 
 type ServiceVmProvisonResponse struct {
-	Id 						 string `json:"id"`
-	Name 					 string `json:"name"`
+	Id             string `json:"id"`
+	Name           string `json:"name"`
 	LifecycleState string `json:"lifecycle_state"`
-	Vms []struct {
+	Vms            []struct {
 		Href string `json:"href"`
-		Id 	 string `json:"id"`
+		Id   string `json:"id"`
 		Name string `json:"name"`
 	} `json:"vms"`
 }
 
 type DataStoreResponse struct {
-	Id string `json:"id"`
+	Id   string `json:"id"`
 	Tags []struct {
 		Name string `json:"name"`
 	} `json:"tags"`
@@ -124,9 +203,9 @@ type Vm struct {
 		CpuCores int `json:"cpu_total_cores"`
 	} `json:"hardware"`
 	Disks []struct {
-		Id   		 string `json:"id"`
-		Size 		 int    `json:"size"`
-		Filename string `json:"filename"`
+		Id        string `json:"id"`
+		Size      int    `json:"size"`
+		Filename  string `json:"filename"`
 		StorageId string `json:"storage_id"`
 	} `json:"disks"`
 	Network []struct {
@@ -138,24 +217,24 @@ type Vm struct {
 type VmReconfigureRequest struct {
 	Action   string `json:"action"`
 	Resource struct {
-		CoresPerSocket  string `json:"cores_per_socket"`
-		DiskAdd					[]DiskAdd `json:"disk_add,omitempty"`
-		DiskRemove			[]DiskRemove `json:"disk_remove,omitempty"`
-		NumberOfCpus    string `json:"number_of_cpus"`
-		NumberOfSockets string `json:"number_of_sockets"`
-		RequestType     string `json:"request_type"`
-		VmMemory        string `json:"vm_memory"`
+		CoresPerSocket  string       `json:"cores_per_socket"`
+		DiskAdd         []DiskAdd    `json:"disk_add,omitempty"`
+		DiskRemove      []DiskRemove `json:"disk_remove,omitempty"`
+		NumberOfCpus    string       `json:"number_of_cpus"`
+		NumberOfSockets string       `json:"number_of_sockets"`
+		RequestType     string       `json:"request_type"`
+		VmMemory        string       `json:"vm_memory"`
 	} `json:"resource"`
 }
 
 type DiskAdd struct {
-	DiskSizeInMb int `json:"disk_size_in_mb"`
-	Name 				 string `json:"name"`
+	DiskSizeInMb int    `json:"disk_size_in_mb"`
+	Name         string `json:"name"`
 	StorageType  string `json:"storage_type"`
-	Type 				 string `json:"type"`
+	Type         string `json:"type"`
 }
 
-type DiskRemove	struct {
+type DiskRemove struct {
 	DiskName string `json:"disk_name"`
 }
 
@@ -178,34 +257,77 @@ type ChangeNetworkTypeRequest struct {
 	} `json:"resource"`
 }
 
-// Subnet structures
+// Network structures
+/*
 type Network struct {
 	Id      string   `json:"id"`
 	Name    string   `json:"name"`
-	Subnets []Subnet `json:"cloud_subnets"`
+	Networks []Network `json:"cloud_networks"`
 }
-type Subnet struct {
-	Id              string   `json:"id"`
-	Name            string   `json:"name"`
-	EmsRef          string   `json:"ems_ref"`
-	EmsId           string   `json:"ems_id"`
-	CloudNetworkId  string   `json:"cloud_network_id"`
-	Cidr            string   `json:"cidr"`
-	Gateway         string   `json:"gateway"`
-	IpVersion       int      `json:"ip_version"`
-	NetworkProtocol string   `json:"network_protocol"`
-	DnsNameservers  []string `json:"dns_nameservers"`
-	NetworkRouterId string   `json:"network_router_id"`
+*/
+/*
+type Network struct {
+	Id             string   `json:"id"`
+	Name           string   `json:"name"`
+	NetworkId      string   `json:"network_id"`
+	Cidr           string   `json:"cidr"`
+	GatewayIp      string   `json:"gateway_ip"`
+	EnableDhcp     string   `json:"enable_dhcp"`
+	IpVersion      int      `json:"ip_version"`
+	RouterId       string   `json:"router_id"`
+	DnsNameservers []string `json:"dns_nameservers"`
+	Metadata       struct {
+		TenantId string `json:"tenant_id"`
+	}
+}*/
+
+type NetworkCreateBody struct {
+	Name     string `json:"name"`
+	Mtu      int    `json:"mtu"`
+	TenantId string `json:"tenant_id"`
+	Subnet   struct {
+		IpVersion       int      `json:"ip_version"`
+		Cidr            string   `json:"cidr"`
+		GatewayIp       string   `json:"gateway_ip"`
+		Ipv6AddressMode string   `json:"ipv6_address_mode"`
+		EnableDhcp      bool     `json:"enable_dhcp"`
+		DnsNameservers  []string `json:"dns_nameservers"`
+	}
 }
 
-type SubnetCreateBody struct {
-	Cidr            string   `json:"cidr"`
+type SubnetParams struct {
 	IpVersion       int      `json:"ip_version"`
-	NetworkProtocol string   `json:"network_protocol"`
-	Name            string   `json:"name"`
+	Cidr            string   `json:"cidr"`
+	GatewayIp       string   `json:"gateway_ip"`
+	Ipv6AddressMode string   `json:"ipv6_address_mode"`
+	EnableDhcp      bool     `json:"enable_dhcp"`
 	DnsNameservers  []string `json:"dns_nameservers"`
 }
 
+/*
+	{
+		"network": {
+		  "name": "test_net",
+		  "mtu": 1500,
+		  "tenant_id": "icdc",
+		  "subnet": {
+			"ip_version": 4,
+			"cidr": "10.11.12.0/24",
+			"gateway_ip": "10.11.12.1",
+			"ipv6_address_mode": "dhcpv6-stateful",
+			"enable_dhcp": true,
+			"dns_nameservers": [
+			  "8.8.8.8"
+			]
+		  }
+		}
+	  }
+*/
+type CloudNetworkRequest struct {
+	Network NetworkCreateBody `json:"network"`
+}
+
+/*
 type NetworkCollection struct {
 	Resources []Network `json:"resources"`
 }
@@ -213,9 +335,9 @@ type NetworkCollection struct {
 type CloudNetworkRequest struct {
 	Action string           `json:"action"`
 	Name   string           `json:"name"`
-	Subnet SubnetCreateBody `json:"subnet"`
+	Network NetworkCreateBody `json:"network"`
 }
-
+*/
 // Security groups structures
 type SecurityGroupCollection struct {
 	Resources []SecurityGroup `json:"resources"`
@@ -304,7 +426,7 @@ type TaskResponse struct {
 
 // Response structures
 type ReconfigurationResponse struct {
-	Success bool 	 `json:"success"`
+	Success bool   `json:"success"`
 	Message string `json:"message"`
-	Href 		string `json:"href"`
+	Href    string `json:"href"`
 }

@@ -2,7 +2,7 @@ terraform {
   required_providers {
     icdc = {
       version = "1.0.0"
-      source = "local.com/ahrechushkin/icdc"
+      source = "local.com/nuspenskaya/icdc"
     }
   }
 }

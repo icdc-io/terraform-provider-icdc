@@ -17,42 +17,42 @@ import (
 func Provider() *schema.Provider {
 	return &schema.Provider{
 		Schema: map[string]*schema.Schema{
-			"username": &schema.Schema{
+			"username": {
 				Type:        schema.TypeString,
 				Required:    true,
 				DefaultFunc: schema.EnvDefaultFunc("CPV_USERNAME", nil),
 			},
-			"password": &schema.Schema{
+			"password": {
 				Type:        schema.TypeString,
 				Required:    true,
 				Sensitive:   true,
 				DefaultFunc: schema.EnvDefaultFunc("CPV_PASSWORD", nil),
 			},
-			"location": &schema.Schema{
+			"location": {
 				Type:        schema.TypeString,
 				Required:    true,
 				Sensitive:   true,
 				DefaultFunc: schema.EnvDefaultFunc("CPV_LOCATION", nil),
 			},
-			"location_number": &schema.Schema{
+			"location_number": {
 				Type:        schema.TypeString,
 				Required:    true,
 				Sensitive:   true,
 				DefaultFunc: schema.EnvDefaultFunc("CPV_LOCATION_NUMBER", nil),
 			},
-			"role": &schema.Schema{
+			"role": {
 				Type:        schema.TypeString,
 				Required:    true,
 				Sensitive:   true,
 				DefaultFunc: schema.EnvDefaultFunc("CPV_ROLE", nil),
 			},
-			"platform": &schema.Schema{
+			"platform": {
 				Type:        schema.TypeString,
 				Required:    true,
 				Sensitive:   true,
 				DefaultFunc: schema.EnvDefaultFunc("CPV_NAME", nil),
 			},
-			"account": &schema.Schema{
+			"account": {
 				Type:        schema.TypeString,
 				Required:    true,
 				Sensitive:   true,
@@ -61,8 +61,9 @@ func Provider() *schema.Provider {
 		},
 		ResourcesMap: map[string]*schema.Resource{
 			"icdc_service":        resourceService(),
-			"icdc_subnet":         resourceSubnet(),
+			"icdc_network":        resourceNetwork(),
 			"icdc_security_group": resourceSecurityGroup(),
+			"icdc_vpc":            resourceVPC(),
 		},
 		DataSourcesMap:       map[string]*schema.Resource{},
 		ConfigureContextFunc: providerConfigure,
@@ -92,7 +93,7 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 		return nil, diags
 	}
 
-	gateway_url := fmt.Sprintf("https://api.%s.icdc.io/api/compute/v1", location)
+	gateway_url := "http://10.207.1.79:3000/api/v1/vpcs"
 
 	os.Setenv("API_GATEWAY", gateway_url)
 	os.Setenv("ROLE", role)

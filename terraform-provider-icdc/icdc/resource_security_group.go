@@ -4,8 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"time"
+
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
 func resourceSecurityGroup() *schema.Resource {
@@ -15,17 +16,34 @@ func resourceSecurityGroup() *schema.Resource {
 		Update: resourceSecurityGroupUpdate,
 		Delete: resourceSecurityGroupDelete,
 		Schema: map[string]*schema.Schema{
-			"id": {
+			/*"id": {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
-			"ems_ref": {
-				Type:     schema.TypeString,
-				Computed: true,
-			},
+			*/
 			"name": {
 				Type:     schema.TypeString,
 				Required: true,
+			},
+			"description": {
+				Type:     schema.TypeString,
+				Required: true,
+			},
+			"metadata": {
+				Type:     schema.TypeSet,
+				Required: true,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"tenant_id": {
+							Type:     schema.TypeString,
+							Required: true,
+						},
+						"router_id": {
+							Type:     schema.TypeString,
+							Required: true,
+						},
+					},
+				},
 			},
 		},
 	}
