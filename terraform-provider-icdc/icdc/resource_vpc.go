@@ -1,6 +1,13 @@
 package icdc
 
 import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"log"
+	"os"
+
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
@@ -11,192 +18,143 @@ func resourceVPC() *schema.Resource {
 		Update: resourceVpcUpdate,
 		Delete: resourceVpcDelete,
 		Schema: map[string]*schema.Schema{
-			/*"id": {
+			"id": {
 				Type:     schema.TypeString,
 				Computed: true,
-			},*/
+			},
 			"name": {
 				Type:     schema.TypeString,
 				Required: true,
 			},
-			"tenant_id": {
-				Type:     schema.TypeString,
-				Computed: true,
-			},
 			"router": {
-				Type:     schema.TypeSet,
+				Type:     schema.TypeString,
 				Required: true,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"name": {
-							Type:     schema.TypeString,
-							Required: true,
-						},
-					},
-				},
 			},
 		},
 	}
 }
 
 func resourceVpcRead(d *schema.ResourceData, m interface{}) error {
+	url := fmt.Sprintf("%s", d.Get("id"))
+	r, err := requestApi("GET", url, nil)
+	if err != nil {
+		return fmt.Errorf("error getting api services: %w", err)
+	}
+
+	resBody, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		fmt.Printf("client: could not read response body: %s\n", err)
+		os.Exit(1)
+	}
+
+	var vpcRequestResponse *VpcRequestResponse
+
+	if err = json.Unmarshal(resBody, &vpcRequestResponse); err != nil {
+		return fmt.Errorf("error decoding service response: %w", err)
+	}
+
+	log.Println(PrettyStruct(vpcRequestResponse))
+	log.Println(vpcRequestResponse.Vpc.Id)
+	d.SetId(vpcRequestResponse.Vpc.Id)
 	return nil
 }
 
 func resourceVpcCreate(d *schema.ResourceData, m interface{}) error {
-	return nil
-}
-
-func resourceVpcUpdate(d *schema.ResourceData, m interface{}) error {
-	return nil
-}
-
-func resourceVpcDelete(d *schema.ResourceData, m interface{}) error {
-	return nil
-}
-
-/*
-
-func resourceVpcCreate(d *schema.ResourceData, m interface{}) error {
-	var emsProvider *EmsProvider
-	responseBody, err := requestApi("GET", "providers?expand=resources&filter[]=type=ManageIQ::Providers::Redhat::NetworkManager", nil)
-
-	if err != nil {
-		return err
-	}
-
-	err = responseBody.Decode(&emsProvider)
-
-	if err != nil {
-		return err
-	}
-
-	emsProviderId := emsProvider.Resources[0].Id
-
-	/*
-		ahrechushkin:
-		 workaround
-		 https://stackoverflow.com/questions/72402307/interface-conversion-error-while-sending-the-payload-for-post-request-custom-t
-*/
-/*
-	dnsNameservers := d.Get("dns_nameservers").([]interface{})
-	dns := make([]string, len(dnsNameservers))
-
-	for _, dnsNameserver := range dnsNameservers {
-		if dnsNameserver != "" {
-			dns = append(dns, dnsNameserver.(string))
-		}
-	}
-
-	// end workaround
-
-	cloudNetworkRaw := &CloudNetworkRequest{
-		Action: "create",
-		Name:   d.Get("name").(string),
-		Subnet: SubnetCreateBody{
-			Cidr:            d.Get("cidr").(string),
-			IpVersion:       d.Get("ip_version").(int),
-			NetworkProtocol: d.Get("network_protocol").(string),
-			Name:            d.Get("name").(string),
-			DnsNameservers:  dns,
+	cloudVpcRaw := &VpcCreateBody{
+		Vpc: VpcStructBody{
+			Name: d.Get("name").(string),
+			Router: RouterCreateBody{
+				Name: d.Get("name").(string),
+			},
 		},
 	}
 
-	requestBody, err := json.Marshal(cloudNetworkRaw)
-
+	requestBody, err := json.Marshal(cloudVpcRaw)
 	if err != nil {
-		return err
+		return fmt.Errorf("error marshaling service request: %w", err)
 	}
 
 	body := bytes.NewBuffer(requestBody)
 
-	var response *ServiceRequestResponse
+	log.Println(PrettyStruct(cloudVpcRaw))
 
-	responseBody, err = requestApi("POST", fmt.Sprintf("providers/%s/cloud_networks", emsProviderId), body)
-
-	if err != nil {
-		return err
-	}
-
-	err = responseBody.Decode(&response)
+	url := ""
+	r, err := requestApi("POST", url, body)
 
 	if err != nil {
 		return err
 	}
 
-	var networkCollection *NetworkCollection
-
-	responseBody, err = requestApi("GET", "cloud_networks?expand=resources&attributes=cloud_subnets", nil)
-
+	resBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		return err
+		fmt.Printf("client: could not read response body: %s\n", err)
+		os.Exit(1)
 	}
 
-	err = responseBody.Decode(&networkCollection)
+	var vpcRequestResponse *VpcRequestResponse
 
-	if err != nil {
-		return err
+	if err = json.Unmarshal(resBody, &vpcRequestResponse); err != nil {
+		return fmt.Errorf("error decoding service response: %w", err)
 	}
 
-	time.Sleep(25 * time.Second)
+	fmt.Println(PrettyStruct(vpcRequestResponse))
+	log.Println(PrettyStruct(vpcRequestResponse))
 
-	for _, network := range networkCollection.Resources {
-		if network.Name == fmt.Sprintf("%s_%s_%s", os.Getenv("LOCATION"), os.Getenv("ACCOUNT"), d.Get("name").(string)) {
-			err := d.Set("cloud_network_id", network.Id)
-
-			if err != nil {
-				return err
-			}
-
-			err = d.Set("name", network.Subnets[0].Name)
-
-			if err != nil {
-				return err
-			}
-
-			err = d.Set("ems_ref", network.Subnets[0].EmsRef)
-
-			if err != nil {
-				return err
-			}
-
-			err = d.Set("network_router_id", network.Subnets[0].NetworkRouterId)
-
-			if err != nil {
-				return err
-			}
-
-			err = d.Set("ems_id", network.Subnets[0].EmsId)
-
-			if err != nil {
-				return err
-			}
-
-			d.SetId(network.Subnets[0].Id)
-		}
-	}
+	vpc_id := vpcRequestResponse.Vpc.Id
+	log.Println(PrettyStruct(vpc_id))
+	d.SetId(vpc_id)
 	return nil
 }
 
 func resourceVpcUpdate(d *schema.ResourceData, m interface{}) error {
-	return nil
-}
 
-func resourceVpcDelete(d *schema.ResourceData, m interface{}) error {
-	deleteNetworkRequest := &DeleteRequest{
-		Action: "delete",
-		Id:     d.Get("cloud_network_id").(string),
+	cloudVpcRaw := &VpcCreateBody{
+		Vpc: VpcStructBody{
+			Name: d.Get("name").(string),
+			Router: RouterCreateBody{
+				Name: d.Get("name").(string),
+			},
+		},
 	}
 
-	requestBody, err := json.Marshal(deleteNetworkRequest)
+	requestBody, err := json.Marshal(cloudVpcRaw)
+	if err != nil {
+		return fmt.Errorf("error marshaling service request: %w", err)
+	}
+
+	body := bytes.NewBuffer(requestBody)
+
+	log.Println(PrettyStruct(cloudVpcRaw))
+
+	url := fmt.Sprintf("%s", d.Get("id").(string))
+	r, err := requestApi("PUT", url, body)
 
 	if err != nil {
 		return err
 	}
 
-	body := bytes.NewBuffer(requestBody)
+	resBody, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		fmt.Printf("client: could not read response body: %s\n", err)
+		os.Exit(1)
+	}
 
-	_, err = requestApi("POST", fmt.Sprintf("providers/%s/cloud_networks", d.Get("ems_id").(string)), body)
+	var vpcRequestResponse *VpcRequestResponse
+
+	if err = json.Unmarshal(resBody, &vpcRequestResponse); err != nil {
+		return fmt.Errorf("error decoding service response: %w", err)
+	}
+
+	fmt.Println(PrettyStruct(vpcRequestResponse))
+	vpc_id := vpcRequestResponse.Vpc.Id
+	d.SetId(vpc_id)
+	return nil
+}
+
+func resourceVpcDelete(d *schema.ResourceData, m interface{}) error {
+
+	url := fmt.Sprintf("%s", d.Get("id").(string))
+	_, err := requestApi("DELETE", url, nil)
 
 	if err != nil {
 		return err
@@ -205,5 +163,5 @@ func resourceVpcDelete(d *schema.ResourceData, m interface{}) error {
 	d.SetId("")
 
 	return nil
+
 }
-*/

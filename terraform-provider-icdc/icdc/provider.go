@@ -4,11 +4,13 @@ import (
 	"context"
 
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -17,46 +19,34 @@ import (
 func Provider() *schema.Provider {
 	return &schema.Provider{
 		Schema: map[string]*schema.Schema{
-			"username": {
+			"username": &schema.Schema{
 				Type:        schema.TypeString,
 				Required:    true,
-				DefaultFunc: schema.EnvDefaultFunc("CPV_USERNAME", nil),
+				DefaultFunc: schema.EnvDefaultFunc("ICDC_USERNAME", nil),
 			},
-			"password": {
+			"password": &schema.Schema{
 				Type:        schema.TypeString,
 				Required:    true,
 				Sensitive:   true,
-				DefaultFunc: schema.EnvDefaultFunc("CPV_PASSWORD", nil),
+				DefaultFunc: schema.EnvDefaultFunc("ICDC_PASSWORD", nil),
 			},
-			"location": {
+			"location": &schema.Schema{
 				Type:        schema.TypeString,
 				Required:    true,
 				Sensitive:   true,
-				DefaultFunc: schema.EnvDefaultFunc("CPV_LOCATION", nil),
+				DefaultFunc: schema.EnvDefaultFunc("ICDC_LOCATION", nil),
 			},
-			"location_number": {
+			"auth_server": &schema.Schema{
+				Type:      schema.TypeString,
+				Optional:  true,
+				Sensitive: true,
+				Default:   "login.icdc.io",
+			},
+			"auth_group": {
 				Type:        schema.TypeString,
 				Required:    true,
 				Sensitive:   true,
-				DefaultFunc: schema.EnvDefaultFunc("CPV_LOCATION_NUMBER", nil),
-			},
-			"role": {
-				Type:        schema.TypeString,
-				Required:    true,
-				Sensitive:   true,
-				DefaultFunc: schema.EnvDefaultFunc("CPV_ROLE", nil),
-			},
-			"platform": {
-				Type:        schema.TypeString,
-				Required:    true,
-				Sensitive:   true,
-				DefaultFunc: schema.EnvDefaultFunc("CPV_NAME", nil),
-			},
-			"account": {
-				Type:        schema.TypeString,
-				Required:    true,
-				Sensitive:   true,
-				DefaultFunc: schema.EnvDefaultFunc("CPV_ACCOUNT", nil),
+				DefaultFunc: schema.EnvDefaultFunc("ICDC_AUTH_GROUP", nil),
 			},
 		},
 		ResourcesMap: map[string]*schema.Resource{
@@ -65,7 +55,9 @@ func Provider() *schema.Provider {
 			"icdc_security_group": resourceSecurityGroup(),
 			"icdc_vpc":            resourceVPC(),
 		},
-		DataSourcesMap:       map[string]*schema.Resource{},
+		DataSourcesMap: map[string]*schema.Resource{
+			"icdc_template": dataSourceICDCTemplate(),
+		},
 		ConfigureContextFunc: providerConfigure,
 	}
 }
@@ -74,13 +66,12 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 	username := d.Get("username").(string)
 	password := d.Get("password").(string)
 	location := d.Get("location").(string)
-	location_number := d.Get("location_number").(string)
-	account := d.Get("account").(string)
-	role := d.Get("role").(string)
+	authGroup := d.Get("auth_group").(string)
+	authServer := d.Get("auth_server").(string)
 
 	var diags diag.Diagnostics
 
-	var url = fmt.Sprintf("https://login.%s.io/auth/realms/master/protocol/openid-connect/token", d.Get("platform").(string))
+	var url = fmt.Sprintf("https://%s/auth/realms/master/protocol/openid-connect/token", authServer)
 	var buf = []byte("username=" + username + "&password=" + password + "&client_id=insights&grant_type=password")
 	var jwt JwtToken
 	resp, _ := http.Post(url, "application/x-www-form-urlencoded", bytes.NewBuffer(buf))
@@ -93,14 +84,47 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 		return nil, diags
 	}
 
-	gateway_url := "http://10.207.1.79:3000/api/v1/vpcs"
+	account := strings.Split(authGroup, ".")[0]
+	role := strings.Split(authGroup, ".")[1]
 
-	os.Setenv("API_GATEWAY", gateway_url)
+	gatewayUrl := "http://10.207.1.77:3000/api/v1/vpcs" //  findGatewayUrl(jwt.AccessToken, location)
+
+	os.Setenv("API_GATEWAY", gatewayUrl)
 	os.Setenv("ROLE", role)
 	os.Setenv("AUTH_TOKEN", jwt.AccessToken)
 	os.Setenv("LOCATION", location)
-	os.Setenv("LOCATION_NUMBER", location_number)
 	os.Setenv("ACCOUNT", account)
+	os.Setenv("USER", username)
 
 	return nil, diags
+}
+
+type IcdcClaims struct {
+	External struct {
+		Locations map[string]string `json:"locations"`
+	} `json:"external"`
+}
+
+func findGatewayUrl(token string, location string) string {
+
+	base64TokenClaims := strings.Split(token, ".")[1]
+
+	base64TokenClaims += strings.Repeat("=", ((4 - len(base64TokenClaims)%4) % 4))
+
+	fmt.Println(base64TokenClaims)
+	rawClaims, err := base64.StdEncoding.DecodeString(base64TokenClaims)
+
+	if err != nil {
+		panic(err)
+	}
+
+	var icdcClaims IcdcClaims
+
+	err = json.Unmarshal(rawClaims, &icdcClaims)
+
+	if err != nil {
+		panic(err)
+	}
+
+	return icdcClaims.External.Locations[location]
 }

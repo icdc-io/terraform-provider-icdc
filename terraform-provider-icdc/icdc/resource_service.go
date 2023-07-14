@@ -5,7 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"os"
+
+	//"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -16,13 +17,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 	"github.com/r3labs/diff/v3"
 )
-
-/*
-  ahrechushkin:
-		- Need to find a way to pass metada in provider context (now i passed all required info in os environment vars)
-		- Need to implement error handling
-		- Need to implement logger
-*/
 
 func resourceService() *schema.Resource {
 	return &schema.Resource{
@@ -133,11 +127,12 @@ func resourceServiceCreate(d *schema.ResourceData, m interface{}) error {
 		// ToDo: make different APIs endpoints functions
 		// ToDo: add ValidateFunc to schema and change types (string to int) of schema and structs
 		var tags *TagsResponse
-		responseBody, err := requestApi("GET", "tags?expand=resources&attributes=classification&filter[]=name='/managed/storage_type/*'", nil)
+		response, err := requestApi("GET", "api/compute/v1/tags?expand=resources&attributes=classification&filter[]=name='/managed/storage_type/*'", nil)
 		if err != nil {
 			return fmt.Errorf("error getting api tags: %w", err)
 		}
-		err = responseBody.Decode(&tags)
+
+		err = json.NewDecoder(response.Body).Decode(&tags)
 		if err != nil {
 			return fmt.Errorf("error decoding tags: %w", err)
 		}
@@ -184,6 +179,7 @@ func resourceServiceCreate(d *schema.ResourceData, m interface{}) error {
 			NumberOfSockets:     "1",
 			CoresPerSocket:      service.Vms[0].CpuCores,
 			Hostname:            "generated-hostname",
+			Adminpassword:       "generate_password",
 			Vlan:                service.Vms[0].Network,
 			SystemDiskType:      service.Vms[0].SystemDiskType,
 			SystemDiskSize:      service.Vms[0].SystemDiskSize,
@@ -193,7 +189,6 @@ func resourceServiceCreate(d *schema.ResourceData, m interface{}) error {
 			AuthType:            "key", // ToDo: update for generate-password
 			SshKey:              service.SshKey,
 			ServiceTemplateHref: fmt.Sprintf("/api/service_templates/%s", service.ServiceTemplateId),
-			RegionNumber:        os.Getenv("API_GATEWAY"),
 		},
 		},
 	}
@@ -208,11 +203,11 @@ func resourceServiceCreate(d *schema.ResourceData, m interface{}) error {
 	// prettystruct for logs
 	log.Println(PrettyStruct(serviceRequest))
 
-	responseBody, err := requestApi("POST", "service_orders/cart/service_requests/", body)
+	response, err := requestApi("POST", "api/compute/v1/service_orders/cart/service_requests/", body)
 	if err != nil {
 		return fmt.Errorf("error requesting service: %w", err)
 	}
-
+	responseBody := json.NewDecoder(response.Body)
 	var serviceRequestResponse *ServiceRequestResponse
 	if err = responseBody.Decode(&serviceRequestResponse); err != nil {
 		return fmt.Errorf("error decoding service response: %w", err)
@@ -279,20 +274,20 @@ func resourceServiceCreate(d *schema.ResourceData, m interface{}) error {
 
 func fetchDestinationId(serviceRequestId string, destinationType string) (string, error) {
 
-	responseBody, err := requestApi("GET", fmt.Sprintf("service_requests/%s?expand=resources&attributes=miq_request_tasks", serviceRequestId), nil)
+	response, err := requestApi("GET", fmt.Sprintf("api/compute/v1/service_requests/%s?expand=resources&attributes=miq_request_tasks", serviceRequestId), nil)
+	if err != nil {
+		return "", err
+	}
+	responseBody := json.NewDecoder(response.Body)
+	var serviceRequestResponse *ServiceMiqRequest
+	err = responseBody.Decode(&serviceRequestResponse)
 	if err != nil {
 		return "", err
 	}
 
-	var response *ServiceMiqRequest
-	err = responseBody.Decode(&response)
-	if err != nil {
-		return "", err
-	}
-
-	for i := range response.MiqRequestTasks {
-		if response.MiqRequestTasks[i].DestinationType == destinationType {
-			return response.MiqRequestTasks[i].DestinationId, nil
+	for i := range serviceRequestResponse.MiqRequestTasks {
+		if serviceRequestResponse.MiqRequestTasks[i].DestinationType == destinationType {
+			return serviceRequestResponse.MiqRequestTasks[i].DestinationId, nil
 		}
 	}
 
@@ -301,30 +296,31 @@ func fetchDestinationId(serviceRequestId string, destinationType string) (string
 
 func fetchDestinationVm(serviceRequestId string) (string, error) {
 
-	responseBody, err := requestApi("GET", fmt.Sprintf("services/%s?expand=vms", serviceRequestId), nil)
+	response, err := requestApi("GET", fmt.Sprintf("api/compute/v1/services/%s?expand=vms", serviceRequestId), nil)
 	if err != nil {
 		return "", err
 	}
 
-	var response *ServiceVmProvisonResponse
-	err = responseBody.Decode(&response)
+	responseBody := json.NewDecoder(response.Body)
+	var serviceVmProvisonResponse *ServiceVmProvisonResponse
+	err = responseBody.Decode(&serviceVmProvisonResponse)
 	if err != nil {
 		return "", err
 	}
 
-	if response.LifecycleState == "provisioned" {
-		return response.Vms[0].Id, nil
+	if serviceVmProvisonResponse.LifecycleState == "provisioned" {
+		return serviceVmProvisonResponse.Vms[0].Id, nil
 	}
 
 	return "", nil
 }
 
 func resourceServiceRead(d *schema.ResourceData, m interface{}) error {
-	responseBody, err := requestApi("GET", fmt.Sprintf("services/%s?expand=resources&attributes=vms", d.Id()), nil)
+	response, err := requestApi("GET", fmt.Sprintf("api/compute/v1/services/%s?expand=resources&attributes=vms", d.Id()), nil)
 	if err != nil {
 		return fmt.Errorf("error getting api services: %w", err)
 	}
-
+	responseBody := json.NewDecoder(response.Body)
 	// mb also add dialog_ssh_key
 	var service *Service
 	err = responseBody.Decode(&service)
@@ -350,11 +346,11 @@ func flattenVms(vmsList []VmParams, d *schema.ResourceData) []interface{} {
 		for i, vm := range vmsList {
 
 			var remoteVm Vm
-			responseBody, err := requestApi("GET", fmt.Sprintf("vms/%s?expand=resources&attributes=hardware,disks,lans,ipaddresses", vm.ID), nil)
+			response, err := requestApi("GET", fmt.Sprintf("api/compute/v1/vms/%s?expand=resources&attributes=hardware,disks,lans,ipaddresses", vm.ID), nil)
 			if err != nil {
 				return nil
 			}
-
+			responseBody := json.NewDecoder(response.Body)
 			err = responseBody.Decode(&remoteVm)
 			if err != nil {
 				return nil
@@ -431,12 +427,12 @@ func flattenVms(vmsList []VmParams, d *schema.ResourceData) []interface{} {
 func diskType(storageId string) string {
 	var datastoreResponse DataStoreResponse
 
-	responseBody, err := requestApi("GET", fmt.Sprintf("data_stores/%s?attributes=tags", storageId), nil)
+	response, err := requestApi("GET", fmt.Sprintf("api/compute/v1/data_stores/%s?attributes=tags", storageId), nil)
 
 	if err != nil {
 		return ""
 	}
-
+	responseBody := json.NewDecoder(response.Body)
 	err = responseBody.Decode(&datastoreResponse)
 	if err != nil {
 		return ""
@@ -492,7 +488,7 @@ func resourceServiceUpdate(d *schema.ResourceData, m interface{}) error {
 
 		body := bytes.NewBuffer(requestBody)
 
-		_, err = requestApi("POST", fmt.Sprintf("services/%s", d.Id()), body)
+		_, err = requestApi("POST", fmt.Sprintf("api/compute/v1/services/%s", d.Id()), body)
 
 		if err != nil {
 			return fmt.Errorf("error sending vm change name request: %w", err)
@@ -543,13 +539,14 @@ func resourceServiceUpdate(d *schema.ResourceData, m interface{}) error {
 			body := bytes.NewBuffer(requestBody)
 
 			vmId := d.Get("vms.0.id").(string)
-			value, err := requestApi("POST", fmt.Sprintf("vms/%s", vmId), body)
+			value, err := requestApi("POST", fmt.Sprintf("api/compute/v1/vms/%s", vmId), body)
 			if err != nil {
 				return fmt.Errorf("error sending vms request: %w", err)
 			}
 
-			var responseBody ReconfigurationResponse
-			if err = value.Decode(&responseBody); err != nil {
+			responseBody := json.NewDecoder(value.Body)
+			var reconfigurationResponse ReconfigurationResponse
+			if err = responseBody.Decode(&reconfigurationResponse); err != nil {
 				return fmt.Errorf("error decoding vms response body: %w", err)
 			}
 
@@ -585,17 +582,17 @@ func resourceServiceUpdate(d *schema.ResourceData, m interface{}) error {
 			}
 
 			body := bytes.NewBuffer(requestBody)
-			value, err := requestApi("POST", fmt.Sprintf("services/%s", d.Id()), body)
+			value, err := requestApi("POST", fmt.Sprintf("api/compute/v1/services/%s", d.Id()), body)
 			if err != nil {
 				return fmt.Errorf("error requesting subnet change: %w", err)
 			}
-
-			var responseBody ReconfigurationResponse
-			if err := value.Decode(&responseBody); err != nil {
+			responseBody := json.NewDecoder(value.Body)
+			var reconfigurationResponse ReconfigurationResponse
+			if err := responseBody.Decode(&reconfigurationResponse); err != nil {
 				return fmt.Errorf("error decoding subnet change response: %w", err)
 			}
 
-			log.Println(PrettyStruct(responseBody))
+			log.Println(PrettyStruct(reconfigurationResponse))
 		}
 	}
 
@@ -617,7 +614,7 @@ func resourceServiceDelete(d *schema.ResourceData, m interface{}) error {
 
 	body := bytes.NewBuffer(requestBody)
 
-	_, err = requestApi("POST", fmt.Sprintf("services/%s", d.Id()), body)
+	_, err = requestApi("POST", fmt.Sprintf("api/compute/v1/services/%s", d.Id()), body)
 
 	if err != nil {
 		return fmt.Errorf("error requesting service retire: %w", err)
@@ -638,13 +635,14 @@ func (vmReconfigureRequest *VmReconfigureRequest) setAdditionalDisksRequest(d *s
 	log.Println(PrettyStruct(changelog))
 
 	// make request for tags
-	response, err := requestApi("GET", "tags?expand=resources&attributes=classification&filter[]=name='/managed/storage_type/*'", nil)
+	response, err := requestApi("GET", "api/compute/v1/tags?expand=resources&attributes=classification&filter[]=name='/managed/storage_type/*'", nil)
 	if err != nil {
 		return fmt.Errorf("error requesting storage types: %w", err)
 	}
 
 	var tags *TagsResponse
-	err = response.Decode(&tags)
+	responseBody := json.NewDecoder(response.Body)
+	err = responseBody.Decode(&tags)
 	if err != nil {
 		return fmt.Errorf("error decoding tags response: %w", err)
 	}
