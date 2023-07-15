@@ -12,7 +12,6 @@ type JwtToken struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
-
 // Service structures
 type Service struct {
 	ID                string `json:"id"`
@@ -66,7 +65,7 @@ type ServiceResources struct {
 	Adminpassword       string `json:"adminpassword"`
 	SshKey              string `json:"ssh_key"`
 	ServiceTemplateHref string `json:"service_template_href"`
-//	RegionNumber        string `json:"region_number"`
+	// RegionNumber        string `json:"region_number"`
 }
 
 type ServiceRequest struct {
@@ -83,8 +82,6 @@ type ServiceRequestResponse struct {
 		Href               string `json:"href"`
 	} `json:"results"`
 }
-
-
 
 type ServiceMiqRequest struct {
 	MiqRequestTasks []struct {
@@ -180,42 +177,67 @@ type ChangeNetworkTypeRequest struct {
 	} `json:"resource"`
 }
 
-// Subnet structures
-type Network struct {
-	Id      string   `json:"id"`
-	Name    string   `json:"name"`
-	Subnets []Subnet `json:"cloud_subnets"`
-}
-type Subnet struct {
-	Id              string   `json:"id"`
-	Name            string   `json:"name"`
-	EmsRef          string   `json:"ems_ref"`
-	EmsId           string   `json:"ems_id"`
-	CloudNetworkId  string   `json:"cloud_network_id"`
-	Cidr            string   `json:"cidr"`
-	Gateway         string   `json:"gateway"`
-	IpVersion       int      `json:"ip_version"`
-	NetworkProtocol string   `json:"network_protocol"`
-	DnsNameservers  []string `json:"dns_nameservers"`
-	NetworkRouterId string   `json:"network_router_id"`
+// Network structures
+type NetworkRequestResponse struct {
+	Network struct {
+		Id                  string `json:"id"`
+		Name                string `json:"name"`
+		TenantId            string `json:"tenant_id"`
+		Status              string `json:"status"`
+		PortSecurityEnabled bool   `json:"port_security_enabled"`
+		Mtu                 int    `json:"mtu"`
+		Subnet              struct {
+			Id              string `json:"id"`
+			Cidr            string `json:"cidr"`
+			NetworkId       string `json:"network_id"`
+			IpVersion       int    `json:"ip_version"`
+			TenantId        string `json:"tenant_id"`
+			RouterId        string `json:"router_id"`
+			EnableDhcp      bool   `json:"enable_dhcp"`
+			AllocationPools []struct {
+				Start string `json:"start"`
+				Stop  string `json:"stop"`
+			} `json:"allocation_pools"`
+			DnsNameservers []string `json:"dns_nameservers"`
+			Name           string   `json:"name"`
+			GatewayIp      string   `json:"gateway_ip"`
+		} `json:"subnet"`
+		Ports []struct {
+			Id           string `json:"id"`
+			Name         string `json:"name"`
+			NetworkId    string `json:"network_id"`
+			MacAddress   string `json:"mac_address"`
+			AdminStateUp bool   `json:"admin_state_up"`
+			DeviceId     string `json:"device_id"`
+			DeviceOwner  string `json:"device_owner"`
+			FixedIps     []struct {
+				IpAddress string `json:"ip_address"`
+				SubnetId  string `json:"subnet_id"`
+			} `json:"fixed_ips"`
+			SecuriyGroups []string `json:"security_groups"`
+			Type          string   `json:"type"`
+		} `json:"ports"`
+	} `json:"network"`
 }
 
-type SubnetCreateBody struct {
-	Cidr            string   `json:"cidr"`
-	IpVersion       int      `json:"ip_version"`
-	NetworkProtocol string   `json:"network_protocol"`
-	Name            string   `json:"name"`
-	DnsNameservers  []string `json:"dns_nameservers"`
+type NetworkCreateBody struct {
+	Name   string       `json:"name"`
+	Mtu    int          `json:"mtu"`
+	Subnet SubnetParams `json:"subnet"`
 }
 
-type NetworkCollection struct {
-	Resources []Network `json:"resources"`
+type SubnetParams struct {
+	Name      string `json:"name"`
+	IpVersion int    `json:"ip_version"`
+	Cidr      string `json:"cidr"`
+	GatewayIp string `json:"gateway_ip"`
+	//Ipv6AddressMode string `json:"ipv6_address_mode"`
+	EnableDhcp     bool   `json:"enable_dhcp"`
+	DnsNameservers string `json:"dns_nameservers"`
 }
 
 type CloudNetworkRequest struct {
-	Action string           `json:"action"`
-	Name   string           `json:"name"`
-	Subnet SubnetCreateBody `json:"subnet"`
+	Network NetworkCreateBody `json:"network"`
 }
 
 // Security groups structures
@@ -249,6 +271,41 @@ type SecurityGroupDeleteRequest struct {
 	Action string `json:"action"`
 	Id     string `json:"id"`
 	Name   string `json:"name"`
+}
+
+// vpc
+type VpcRequestResponse struct {
+	Vpc struct {
+		Id             string         `json:"id"`
+		Name           string         `json:"name"`
+		TenantId       string         `json:"tenant_id"`
+		Router         RouterResponse `json:"router"`
+		Networks       []string       `json:"networks"`
+		SecurityGroups []string       `json:"security_groups"`
+	} `json:"vpc"`
+}
+
+type RouterResponse struct {
+	Id                  string   `json:"id"`
+	Name                string   `json:"name"`
+	AdminStateUp        bool     `json:"admin_state_up"`
+	Status              string   `json:"status"`
+	TenantId            string   `json:"tenant_id"`
+	ExternalGatewayInfo string   `json:"external_gateway_info"`
+	Routes              []string `json:"routes"`
+}
+
+type VpcCreateBody struct {
+	Vpc VpcStructBody `json:"vpc"`
+}
+
+type VpcStructBody struct {
+	Name   string           `json:"name"`
+	Router RouterCreateBody `json:"router"`
+}
+
+type RouterCreateBody struct {
+	Name string `json:"name"`
 }
 
 // Security group rules structures

@@ -59,3 +59,8 @@ resource icdc_subnet tf_sbnt {
   dns_nameserver = "178.172.238.130"
   network_protocol = "ipv4"
 }
+
+resource "icdc_vpc" "vpc_nina1" {
+  name = "vpc-name-1"
+  router = "nina_test_1"
+}
