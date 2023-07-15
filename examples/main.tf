@@ -52,10 +52,13 @@ resource icdc_service tf_srv4 {
   }
 }
 
-resource icdc_subnet tf_sbnt {
-  name = "tf_sbnt"
-  cidr = "9.110.0.0/26"
-  gateway = "9.110.0.1"
-  dns_nameserver = "178.172.238.130"
-  network_protocol = "ipv4"
+resource "icdc_network" "net-nina1" {
+  vpc_id = "3be5b80f-61de-4bc9-9fdc-1ff1b123bc11"
+  name = "tf-net-nina1"
+  mtu = "1200"
+  ip_version = "4"
+  dns_nameservers = "194.213.212.130"
+  enable_dhcp = "true"
+  cidr = "192.168.1.0/22"
+  gateway_ip = "192.168.1.1"
 }
