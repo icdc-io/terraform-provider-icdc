@@ -78,7 +78,6 @@ func resourceNetworkRead(d *schema.ResourceData, m interface{}) error {
 		return fmt.Errorf("error decoding service response: %w", err)
 	}
 
-	fmt.Println(PrettyStruct(networtGetResponse))
 	log.Println(PrettyStruct(networtGetResponse))
 	d.SetId(networtGetResponse.Network.Id)
 	return nil
@@ -132,7 +131,7 @@ func resourceNetworkCreate(d *schema.ResourceData, m interface{}) error {
 		return fmt.Errorf("error decoding service response: %w", err)
 	}
 
-	fmt.Println(PrettyStruct(networkRequestResponse))
+	log.Println(PrettyStruct(networkRequestResponse))
 	NetworkId := networkRequestResponse.Network.Id
 	d.SetId(NetworkId)
 	return nil
@@ -186,7 +185,7 @@ func resourceNetworkUpdate(d *schema.ResourceData, m interface{}) error {
 		return fmt.Errorf("error decoding service response: %w", err)
 	}
 
-	fmt.Println(PrettyStruct(networkRequestResponse))
+	log.Println(PrettyStruct(networkRequestResponse))
 	NetworkId := networkRequestResponse.Network.Id
 	d.SetId(NetworkId)
 	return nil
