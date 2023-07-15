@@ -4,8 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"log"
+	"os"
+
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"time"
 )
 
 func resourceSecurityGroup() *schema.Resource {
@@ -19,11 +22,39 @@ func resourceSecurityGroup() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
-			"ems_ref": {
-				Type:     schema.TypeString,
-				Computed: true,
-			},
 			"name": {
+				Type:     schema.TypeString,
+				Required: true,
+			},
+			"description": {
+				Type:     schema.TypeString,
+				Required: true,
+			},
+			"direction": {
+				Type:     schema.TypeString,
+				Required: true,
+			},
+			"ethertype": {
+				Type:     schema.TypeString,
+				Required: true,
+			},
+			"remote_ip_prefix": {
+				Type:     schema.TypeString,
+				Required: true,
+			},
+			"port_range_max": {
+				Type:     schema.TypeString,
+				Required: true,
+			},
+			"port_range_min": {
+				Type:     schema.TypeString,
+				Required: true,
+			},
+			"protocol": {
+				Type:     schema.TypeString,
+				Required: true,
+			},
+			"remote_group_id": {
 				Type:     schema.TypeString,
 				Required: true,
 			},
@@ -32,170 +63,197 @@ func resourceSecurityGroup() *schema.Resource {
 }
 
 func resourceSecurityGroupRead(d *schema.ResourceData, m interface{}) error {
-	var securityGroup *SecurityGroup
-
-	responseBody, err := requestApi("GET", fmt.Sprintf("security_groups/%s?expand=resources", d.Id()), nil)
-
+	url := fmt.Sprintf("%s", d.Get("id"))
+	r, err := requestApi("GET", url, nil)
 	if err != nil {
-		return err
+		return fmt.Errorf("error getting api services: %w", err)
 	}
 
-	err = responseBody.Decode(&securityGroup)
-
+	resBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		return err
+		fmt.Printf("client: could not read response body: %s\n", err)
+		os.Exit(1)
 	}
 
-	err = d.Set("name", securityGroup.Name)
+	var securityGroupRequestResponse *SecurityGroupRequestResponse
 
-	if err != nil {
-		return err
+	if err = json.Unmarshal(resBody, &securityGroupRequestResponse); err != nil {
+		return fmt.Errorf("error decoding service response: %w", err)
 	}
 
-	err = d.Set("ems_ref", securityGroup.EmsRef)
-
-	if err != nil {
-		return err
-	}
-
+	log.Println(PrettyStruct(securityGroupRequestResponse))
+	d.SetId(securityGroupRequestResponse.Id)
 	return nil
 }
 
 func resourceSecurityGroupCreate(d *schema.ResourceData, m interface{}) error {
-
-	responseBody, err := requestApi("GET", "providers?expand=resources&filter[]=type=ManageIQ::Providers::Redhat::NetworkManager", nil)
-
-	if err != nil {
-		return err
-	}
-	var emsProvider *EmsProvider
-
-	err = responseBody.Decode(&emsProvider)
-
-	if err != nil {
-		return err
+	cloudGroupRaw := &GroupCreateBody{
+		SecurityGroup: SecurityGroupBody{
+			Name:        d.Get("name").(string),
+			Description: d.Get("description").(string),
+		},
 	}
 
-	emsProviderId := emsProvider.Resources[0].Id
-
-	securityGroupCreateRequest := SecurityGroupCreateRequest{
-		Name:   d.Get("name").(string),
-		Action: "create",
-	}
-
-	requestBody, err := json.Marshal(securityGroupCreateRequest)
-
+	requestBody, err := json.Marshal(cloudGroupRaw)
 	if err != nil {
-		return err
+		return fmt.Errorf("error marshaling service request: %w", err)
 	}
 
 	body := bytes.NewBuffer(requestBody)
 
-	responseBody, err = requestApi("POST", fmt.Sprintf("providers/%s/security_groups", emsProviderId), body)
+	log.Println(PrettyStruct(cloudGroupRaw))
+
+	url := fmt.Sprintf("%s/security_groups", d.Get("vpc_id"))
+	r, err := requestApi("POST", url, body)
 
 	if err != nil {
 		return err
 	}
 
-	var taskResponse TaskResponse
-
-	err = responseBody.Decode(&taskResponse)
-
+	resBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		return err
+		fmt.Printf("client: could not read response body: %s\n", err)
+		os.Exit(1)
 	}
 
-	if !taskResponse.Results[0].Success {
-		return fmt.Errorf("Error creating security group: %s", taskResponse.Results[0].Message)
+	var securityGroupRequestResponse *SecurityGroupRequestResponse
+
+	if err = json.Unmarshal(resBody, &securityGroupRequestResponse); err != nil {
+		return fmt.Errorf("error decoding service response: %w", err)
 	}
 
-	taskId := taskResponse.Results[0].TaskId
+	log.Println(PrettyStruct(securityGroupRequestResponse))
 
-	// Wait for task to complete
-	time.Sleep(30 * time.Second)
+	group_id := securityGroupRequestResponse.Id
+	log.Println(PrettyStruct(group_id))
+	d.SetId(group_id)
 
-	taskResultResponse, err := requestApi("GET", fmt.Sprintf("tasks/%s?expand=resources&attributes=task_results", taskId), nil)
+	/*create rule*/
+	/*	cloudGroupRuleRaw := &RuleCreateBody{
+			SecurityGroupRule: SecurityGroupRuleBody{
+				Direction:       d.Get("direction").(string),
+				NetworkProtocol: d.Get("network_protocol").(string),
+				Ethertype:       d.Get("ethertype").(string),
+				PortRangeMin:    d.Get("port_range_min").(string),
+				PortRangeMax:    d.Get("port_range_max").(string),
+				Protocol:        d.Get("protocol").(string),
+				RemoteGroupId:   d.Get("remote_group_id").(string),
+				SecurityGroupId: d.Get("security_group_id").(string),
+			},
+		}
 
-	if err != nil {
-		return err
-	}
+		requestBody, err = json.Marshal(cloudGroupRuleRaw)
+		if err != nil {
+			return fmt.Errorf("error marshaling service request: %w", err)
+		}
 
-	var securityGroupTaskResult SecurityGroupTaskResult
+		body = bytes.NewBuffer(requestBody)
 
-	err = taskResultResponse.Decode(&securityGroupTaskResult)
+		log.Println(PrettyStruct(cloudGroupRuleRaw))
+		url = fmt.Sprintf("security_groups/%s/rules", d.Get("id"))
+		r, err = requestApi("POST", url, body)
 
-	if err != nil {
-		return err
-	}
+		if err != nil {
+			return err
+		}
+		resBody, err = ioutil.ReadAll(r.Body)
+		if err != nil {
+			fmt.Printf("client: could not read response body: %s\n", err)
+			os.Exit(1)
+		}
 
-	securityGroupEmsRef := securityGroupTaskResult.TaskResults.SecurityGroups.EmsRef
+		var securityGroupRuleRequestResponse *SecurityGroupRuleRequestResponse
 
-	// Wait for completely ems refreshing
+		if err = json.Unmarshal(resBody, &securityGroupRuleRequestResponse); err != nil {
+			return fmt.Errorf("error decoding service response: %w", err)
+		}
 
-	//time.Sleep(45 * time.Second)
+		fmt.Println(PrettyStruct(securityGroupRuleRequestResponse))
+		log.Println(PrettyStruct(securityGroupRuleRequestResponse))
 
-	securityGroupCollectionResponse, err := requestApi("GET", fmt.Sprintf("security_groups?expand=resources&filter[]=ems_ref=%s", securityGroupEmsRef), nil)
-
-	if err != nil {
-		return err
-	}
-
-	var securityGroupCollection SecurityGroupCollection
-
-	err = securityGroupCollectionResponse.Decode(&securityGroupCollection)
-
-	if err != nil {
-		return err
-	}
-
-	//err = d.Set("Name", securityGroupCollection.Resources[0].Name)
-
-	if err != nil {
-		return err
-	}
-
-	d.SetId(securityGroupCollection.Resources[0].Id)
-
+		sgroup_id := securityGroupRuleRequestResponse.Id
+		log.Println(PrettyStruct(group_id))
+		d.SetId(group_id)*/
 	return nil
-
 }
 
 func resourceSecurityGroupUpdate(d *schema.ResourceData, m interface{}) error {
+
+	cloudGroupRaw := &GroupCreateBody{
+		SecurityGroup: SecurityGroupBody{
+			Name:        d.Get("name").(string),
+			Description: d.Get("description").(string),
+		},
+	}
+
+	requestBody, err := json.Marshal(cloudGroupRaw)
+	if err != nil {
+		return fmt.Errorf("error marshaling service request: %w", err)
+	}
+
+	body := bytes.NewBuffer(requestBody)
+
+	log.Println(PrettyStruct(cloudGroupRaw))
+
+	url := fmt.Sprintf("%s", d.Get("id").(string))
+	r, err := requestApi("PUT", url, body)
+
+	if err != nil {
+		return err
+	}
+
+	resBody, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		fmt.Printf("client: could not read response body: %s\n", err)
+		os.Exit(1)
+	}
+
+	var securityGroupRequestResponse *SecurityGroupRequestResponse
+
+	if err = json.Unmarshal(resBody, &securityGroupRequestResponse); err != nil {
+		return fmt.Errorf("error decoding service response: %w", err)
+	}
+
+	fmt.Println(PrettyStruct(securityGroupRequestResponse))
+	vpc_id := securityGroupRequestResponse.Id
+	d.SetId(vpc_id)
+
+	/*update rule*/
+	/*	cloudGroupRuleRaw := &RuleCreateBody{
+			SecurityGroupRule: SecurityGroupRuleBody{
+				Direction:       d.Get("direction").(string),
+				NetworkProtocol: d.Get("network_protocol").(string),
+				Ethertype:       d.Get("ethertype").(string),
+				PortRangeMin:    d.Get("port_range_min").(string),
+				PortRangeMax:    d.Get("port_range_max").(string),
+				Protocol:        d.Get("protocol").(string),
+				RemoteGroupId:   d.Get("remote_group_id").(string),
+				SecurityGroupId: d.Get("security_group_id").(string),
+			},
+		}
+
+		requestBody, err = json.Marshal(cloudGroupRuleRaw)
+		if err != nil {
+			return fmt.Errorf("error marshaling service request: %w", err)
+		}
+
+		body = bytes.NewBuffer(requestBody)
+
+		log.Println(PrettyStruct(cloudGroupRuleRaw))
+		url = fmt.Sprintf("security_groups/%s/rules/", d.Get("id"))
+		_, err = requestApi("POST", url, body)
+
+		if err != nil {
+			return err
+		}*/
+
 	return nil
 }
 
 func resourceSecurityGroupDelete(d *schema.ResourceData, m interface{}) error {
 
-	var emsProvider *EmsProvider
-	responseBody, err := requestApi("GET", "providers?expand=resources&filter[]=type=ManageIQ::Providers::Redhat::NetworkManager", nil)
-
-	if err != nil {
-		return err
-	}
-
-	err = responseBody.Decode(&emsProvider)
-
-	if err != nil {
-		return err
-	}
-
-	emsProviderId := emsProvider.Resources[0].Id
-
-	securityGroupDeleteRequest := &SecurityGroupDeleteRequest{
-		Action: "delete",
-		Id:     d.Id(),
-		Name:   d.Get("name").(string),
-	}
-
-	requestBody, err := json.Marshal(securityGroupDeleteRequest)
-
-	if err != nil {
-		return err
-	}
-
-	body := bytes.NewBuffer(requestBody)
-
-	_, err = requestApi("POST", fmt.Sprintf("providers/%s/security_groups", emsProviderId), body)
+	url := fmt.Sprintf("%s", d.Get("id").(string))
+	_, err := requestApi("DELETE", url, nil)
 
 	if err != nil {
 		return err
@@ -204,4 +262,5 @@ func resourceSecurityGroupDelete(d *schema.ResourceData, m interface{}) error {
 	d.SetId("")
 
 	return nil
+
 }

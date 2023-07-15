@@ -12,7 +12,6 @@ type JwtToken struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
-
 // Service structures
 type Service struct {
 	ID                string `json:"id"`
@@ -66,7 +65,7 @@ type ServiceResources struct {
 	Adminpassword       string `json:"adminpassword"`
 	SshKey              string `json:"ssh_key"`
 	ServiceTemplateHref string `json:"service_template_href"`
-//	RegionNumber        string `json:"region_number"`
+	// RegionNumber        string `json:"region_number"`
 }
 
 type ServiceRequest struct {
@@ -83,8 +82,6 @@ type ServiceRequestResponse struct {
 		Href               string `json:"href"`
 	} `json:"results"`
 }
-
-
 
 type ServiceMiqRequest struct {
 	MiqRequestTasks []struct {
@@ -219,36 +216,53 @@ type CloudNetworkRequest struct {
 }
 
 // Security groups structures
-type SecurityGroupCollection struct {
-	Resources []SecurityGroup `json:"resources"`
+type GroupCreateBody struct {
+	SecurityGroup SecurityGroupBody `json:"security_group"`
 }
 
-type SecurityGroup struct {
-	Id     string `json:"id"`
-	EmsRef string `json:"ems_ref"`
-	Name   string `json:"name"`
+type RuleCreateBody struct {
+	SecurityGroupRule SecurityGroupRuleBody `json:"security_group_rule"`
 }
 
-type SecurityGroupCreateRequest struct {
-	Action string `json:"action"`
-	Name   string `json:"name"`
+type SecurityGroupRuleBody struct {
+	Direction       string `json:"direction"`
+	NetworkProtocol string `json:"network_protocol"`
+	Ethertype       string `json:"ethertype"`
+	PortRangeMin    string `json:"port_range_min"`
+	PortRangeMax    string `json:"port_range_max"`
+	Protocol        string `json:"protocol"`
+	RemoteGroupId   string `json:"remote_group_id"`
+	SecurityGroupId string `json:"security_group_id"`
 }
 
-type SecurityGroupTaskResult struct {
-	TaskResults struct {
-		SecurityGroups SecurityGroupResource `json:"security_group"`
-	} `json:"task_results"`
+type SecurityGroupBody struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
 }
 
-type SecurityGroupResource struct {
-	EmsRef string `json:"id"`
-	Name   string `json:"name"`
+type SecurityGroupRequestResponse struct {
+	Id                 string               `json:"id"`
+	Name               string               `json:"name"`
+	TenantId           string               `json:"tenant_id"`
+	RouterId           string               `json:"router_id"`
+	Description        string               `json:"description"`
+	SecurityGroupRules []SecurityGroupRules `json:"security_group_rules"`
 }
 
-type SecurityGroupDeleteRequest struct {
-	Action string `json:"action"`
-	Id     string `json:"id"`
-	Name   string `json:"name"`
+type SecurityGroupRuleRequestResponse struct {
+}
+
+type SecurityGroupRules []struct {
+	Id              string `json:"id"`
+	Direction       string `json:"direction"`
+	SecurityGroupId string `json:"security_group_id"`
+	Description     string `json:"description"`
+	Erthertype      string `json:"erthertype"`
+	RemoteIpPrefix  string `json:"remote_ip_prefix"`
+	PortRangeMax    string `json:"port_range_max"`
+	PortRangeMin    string `json:"port_range_min"`
+	Protocol        string `json:"protocol"`
+	RemoteGroupId   string `json:"remote_group_id"`
 }
 
 // Security group rules structures

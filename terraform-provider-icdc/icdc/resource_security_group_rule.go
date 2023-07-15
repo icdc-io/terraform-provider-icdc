@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
@@ -64,7 +65,7 @@ func resourceSecurityGroupRule() *schema.Resource {
 
 func resourceSecurityGroupRuleCreate(d *schema.ResourceData, m interface{}) error {
 	// Get all existing security group rules
-	responseBody, err := requestApi("GET", fmt.Sprintf("security_groups/%s?expand=resources&attributes=firewall_rules", d.Get("resource_id").(string)), nil)
+	/*responseBody, err := requestApi("GET", fmt.Sprintf("security_groups/%s?expand=resources&attributes=firewall_rules", d.Get("resource_id").(string)), nil)
 
 	if err != nil {
 		return err
@@ -144,7 +145,7 @@ func resourceSecurityGroupRuleCreate(d *schema.ResourceData, m interface{}) erro
 			return nil
 		}
 	}
-
+	*/
 	return nil
 }
 
@@ -158,81 +159,81 @@ func contains(s []string, e string) bool {
 }
 
 func resourceSecurityGroupRuleRead(d *schema.ResourceData, m interface{}) error {
-	responseBody, err := requestApi("GET", fmt.Sprintf("security_groups/%s?expand=resources&attributes=firewall_rules", d.Get("resource_id").(string)), nil)
+	/*	responseBody, err := requestApi("GET", fmt.Sprintf("security_groups/%s?expand=resources&attributes=firewall_rules", d.Get("resource_id").(string)), nil)
 
-	if err != nil {
-		return err
-	}
-
-	var securityGroupRulesCollection *SecurityGroupRulesCollection
-	err = responseBody.Decode(&securityGroupRulesCollection)
-
-	if err != nil {
-		return err
-	}
-
-	for i, rule := range securityGroupRulesCollection.Rules {
-		if rule.Id == d.Id() {
-			err = d.Set("ems_ref", rule.EmsRef)
-
-			if err != nil {
-				return err
-			}
-
-			direction := directionMapper(rule.Direction)
-
-			err = d.Set("direction", direction)
-
-			if err != nil {
-				return err
-			}
-
-			err = d.Set("network_protocol", rule.NetworkProtocol)
-
-			if err != nil {
-				return err
-			}
-
-			err = d.Set("port", rule.PortRangeMin)
-
-			if err != nil {
-				return err
-			}
-
-			err = d.Set("end_port", rule.PortRangeMax)
-
-			if err != nil {
-				return err
-			}
-
-			err = d.Set("protocol", rule.Protocol)
-
-			if err != nil {
-				return err
-			}
-
-			err = d.Set("source_ip_range", rule.SourceIpRange)
-
-			if err != nil {
-				return err
-			}
-
-			err = d.Set("security_group_id", rule.SecurityGroupId)
-
-			if err != nil {
-				return err
-			}
-
-			err = d.Set("resource_id", securityGroupRulesCollection.Rules[i].SecurityGroupId)
-
-			if err != nil {
-				return err
-			}
-
-			return nil
+		if err != nil {
+			return err
 		}
-	}
 
+		var securityGroupRulesCollection *SecurityGroupRulesCollection
+		err = responseBody.Decode(&securityGroupRulesCollection)
+
+		if err != nil {
+			return err
+		}
+
+		for i, rule := range securityGroupRulesCollection.Rules {
+			if rule.Id == d.Id() {
+				err = d.Set("ems_ref", rule.EmsRef)
+
+				if err != nil {
+					return err
+				}
+
+				direction := directionMapper(rule.Direction)
+
+				err = d.Set("direction", direction)
+
+				if err != nil {
+					return err
+				}
+
+				err = d.Set("network_protocol", rule.NetworkProtocol)
+
+				if err != nil {
+					return err
+				}
+
+				err = d.Set("port", rule.PortRangeMin)
+
+				if err != nil {
+					return err
+				}
+
+				err = d.Set("end_port", rule.PortRangeMax)
+
+				if err != nil {
+					return err
+				}
+
+				err = d.Set("protocol", rule.Protocol)
+
+				if err != nil {
+					return err
+				}
+
+				err = d.Set("source_ip_range", rule.SourceIpRange)
+
+				if err != nil {
+					return err
+				}
+
+				err = d.Set("security_group_id", rule.SecurityGroupId)
+
+				if err != nil {
+					return err
+				}
+
+				err = d.Set("resource_id", securityGroupRulesCollection.Rules[i].SecurityGroupId)
+
+				if err != nil {
+					return err
+				}
+
+				return nil
+			}
+		}
+	*/
 	return nil
 }
 

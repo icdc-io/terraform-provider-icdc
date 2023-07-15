@@ -59,3 +59,16 @@ resource icdc_subnet tf_sbnt {
   dns_nameserver = "178.172.238.130"
   network_protocol = "ipv4"
 }
+
+resource "icdc_security_group" "security_group_nina1" {
+  name = "RDP_SSH"
+  vpc_id = "3be5b80f-61de-4bc9-9fdc-1ff1b123bc11"
+  description = "Allow incoming 22 and 3389 tcp"
+  direction = "egress"
+  ethertype = "IPv4"
+  remote_ip_prefix = "string"
+  port_range_max = "2203"
+  port_range_min = "2200"
+  protocol = "icmp"
+  remote_group_id = "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+}
