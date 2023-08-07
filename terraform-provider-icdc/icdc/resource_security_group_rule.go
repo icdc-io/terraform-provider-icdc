@@ -4,14 +4,17 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
+	"log"
+	"os"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
 func resourceSecurityGroupRule() *schema.Resource {
 	return &schema.Resource{
-		Create: resourceSecurityGroupRuleCreate,
 		Read:   resourceSecurityGroupRuleRead,
+		Create: resourceSecurityGroupRuleCreate,
 		Update: resourceSecurityGroupRuleUpdate,
 		Delete: resourceSecurityGroupRuleDelete,
 		Schema: map[string]*schema.Schema{
@@ -19,43 +22,35 @@ func resourceSecurityGroupRule() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
-			"ems_ref": {
-				Type:     schema.TypeString,
-				Computed: true,
-			},
-			"protocol": {
-				Type:     schema.TypeString,
-				Optional: true,
-			},
 			"direction": {
 				Type:     schema.TypeString,
 				Required: true,
 			},
-			"port": {
+			"port_range_max": {
 				Type:     schema.TypeString,
 				Optional: true,
 			},
-			"end_port": {
+			"remote_ip_prefix": {
 				Type:     schema.TypeString,
 				Optional: true,
 			},
-			"network_protocol": {
+			"ethertype": {
 				Type:     schema.TypeString,
 				Required: true,
-			},
-			"source_security_group_id": {
-				Type:     schema.TypeString,
-				Optional: true,
-			},
-			"source_ip_range": {
-				Type:     schema.TypeString,
-				Optional: true,
 			},
 			"security_group_id": {
 				Type:     schema.TypeString,
+				Optional: true,
+			},
+			"port_range_min": {
+				Type:     schema.TypeString,
+				Optional: true,
+			},
+			"protocol": {
+				Type:     schema.TypeString,
 				Required: true,
 			},
-			"resource_id": {
+			"remote_group_id": {
 				Type:     schema.TypeString,
 				Required: true,
 			},
@@ -64,185 +59,78 @@ func resourceSecurityGroupRule() *schema.Resource {
 }
 
 func resourceSecurityGroupRuleCreate(d *schema.ResourceData, m interface{}) error {
-	// Get all existing security group rules
-	responseBody, err := requestApi("GET", fmt.Sprintf("security_groups/%s?expand=resources&attributes=firewall_rules", d.Get("resource_id").(string)), nil)
-
-	if err != nil {
-		return err
+	cloudGroupRuleRaw := &RuleCreateBody{
+		SecurityGroupRule: SecurityGroupRuleBody{
+			Direction:       d.Get("direction").(string),
+			Ethertype:       d.Get("ethertype").(string),
+			PortRangeMin:    d.Get("port_range_min").(string),
+			PortRangeMax:    d.Get("port_range_max").(string),
+			Protocol:        d.Get("protocol").(string),
+			RemoteGroupId:   d.Get("remote_group_id").(string),
+			SecurityGroupId: d.Get("security_group_id").(string),
+		},
 	}
 
-	var securityGroupRulesCollection *SecurityGroupRulesCollection
-
-	err = responseBody.Decode(&securityGroupRulesCollection)
-
+	requestBody, err := json.Marshal(cloudGroupRuleRaw)
 	if err != nil {
-		return err
-	}
-
-	existingRulesIlds := make([]string, len(securityGroupRulesCollection.Rules))
-
-	for i, rule := range securityGroupRulesCollection.Rules {
-		existingRulesIlds[i] = rule.Id
-	}
-
-	if err != nil {
-		return err
-	}
-
-	var securityGroupRule AddSecurityGroupRule
-	securityGroupRule.Action = "add_firewall_rule"
-	securityGroupRule.Direction = d.Get("direction").(string)
-	securityGroupRule.NetworkProtocol = d.Get("network_protocol").(string)
-	securityGroupRule.PortRangeMin = d.Get("port").(string)
-	securityGroupRule.PortRangeMax = d.Get("end_port").(string)
-	securityGroupRule.Protocol = d.Get("protocol").(string)
-	//securityGroupRule.RemoteGroupId = d.Get("remote_group_ip").(string)
-	securityGroupRule.SourceIpRange = d.Get("source_ip_range").(string)
-	securityGroupRule.SecurityGroupId = d.Get("security_group_id").(string)
-
-	requestBody, err := json.Marshal(securityGroupRule)
-
-	if err != nil {
-		return err
-	}
-
-	err = json.Unmarshal([]byte(requestBody), &securityGroupRule)
-
-	if err != nil {
-		return err
+		return fmt.Errorf("error marshaling service request: %w", err)
 	}
 
 	body := bytes.NewBuffer(requestBody)
 
-	_, err = requestApi("POST", fmt.Sprintf("security_groups/%s", d.Get("resource_id").(string)), body)
+	log.Println(PrettyStruct(cloudGroupRuleRaw))
+	url := fmt.Sprintf("security_groups/%s/rules", d.Get("security_group_id").(string))
+	r, err := requestApi("POST", url, body)
 
 	if err != nil {
 		return err
 	}
-
-	responseBody, err = requestApi("GET", fmt.Sprintf("security_groups/%s?expand=resources&attributes=firewall_rules", d.Get("resource_id").(string)), nil)
-
+	resBody, err := io.ReadAll(r.Body)
 	if err != nil {
-		return err
+		fmt.Printf("client: could not read response body: %s\n", err)
+		os.Exit(1)
 	}
 
-	err = responseBody.Decode(&securityGroupRulesCollection)
+	var securityGroupRuleRequestResponse *SecurityGroupRuleRequestResponse
 
-	if err != nil {
-		return err
+	if err = json.Unmarshal(resBody, &securityGroupRuleRequestResponse); err != nil {
+		return fmt.Errorf("error decoding service response: %w", err)
 	}
 
-	for _, rule := range securityGroupRulesCollection.Rules {
-		if !contains(existingRulesIlds, rule.Id) {
-			d.SetId(rule.Id)
+	fmt.Println(PrettyStruct(securityGroupRuleRequestResponse))
+	log.Println(PrettyStruct(securityGroupRuleRequestResponse))
 
-			err = d.Set("ems_ref", rule.EmsRef)
-
-			if err != nil {
-				return err
-			}
-
-			return nil
-		}
-	}
+	sgroup_rule_id := securityGroupRuleRequestResponse.SecurityGroupRule.Id
+	log.Println(PrettyStruct(sgroup_rule_id))
+	d.SetId(sgroup_rule_id)
 
 	return nil
-}
-
-func contains(s []string, e string) bool {
-	for _, a := range s {
-		if a == e {
-			return true
-		}
-	}
-	return false
 }
 
 func resourceSecurityGroupRuleRead(d *schema.ResourceData, m interface{}) error {
-	responseBody, err := requestApi("GET", fmt.Sprintf("security_groups/%s?expand=resources&attributes=firewall_rules", d.Get("resource_id").(string)), nil)
-
+	url := fmt.Sprintf("rules/%s", d.Get("id").(string))
+	r, err := requestApi("GET", url, nil)
 	if err != nil {
-		return err
+		return fmt.Errorf("error getting api services: %w", err)
 	}
 
-	var securityGroupRulesCollection *SecurityGroupRulesCollection
-	err = responseBody.Decode(&securityGroupRulesCollection)
-
+	resBody, err := io.ReadAll(r.Body)
 	if err != nil {
-		return err
+		fmt.Printf("client: could not read response body: %s\n", err)
+		os.Exit(1)
 	}
 
-	for i, rule := range securityGroupRulesCollection.Rules {
-		if rule.Id == d.Id() {
-			err = d.Set("ems_ref", rule.EmsRef)
+	var securityGroupRuleRequestResponse *SecurityGroupRuleRequestResponse
 
-			if err != nil {
-				return err
-			}
-
-			direction := directionMapper(rule.Direction)
-
-			err = d.Set("direction", direction)
-
-			if err != nil {
-				return err
-			}
-
-			err = d.Set("network_protocol", rule.NetworkProtocol)
-
-			if err != nil {
-				return err
-			}
-
-			err = d.Set("port", rule.PortRangeMin)
-
-			if err != nil {
-				return err
-			}
-
-			err = d.Set("end_port", rule.PortRangeMax)
-
-			if err != nil {
-				return err
-			}
-
-			err = d.Set("protocol", rule.Protocol)
-
-			if err != nil {
-				return err
-			}
-
-			err = d.Set("source_ip_range", rule.SourceIpRange)
-
-			if err != nil {
-				return err
-			}
-
-			err = d.Set("security_group_id", rule.SecurityGroupId)
-
-			if err != nil {
-				return err
-			}
-
-			err = d.Set("resource_id", securityGroupRulesCollection.Rules[i].SecurityGroupId)
-
-			if err != nil {
-				return err
-			}
-
-			return nil
-		}
+	if err = json.Unmarshal(resBody, &securityGroupRuleRequestResponse); err != nil {
+		return fmt.Errorf("error decoding service response: %w", err)
 	}
+
+	log.Println(PrettyStruct(securityGroupRuleRequestResponse))
+	log.Println(securityGroupRuleRequestResponse.SecurityGroupRule.Id)
+	d.SetId(securityGroupRuleRequestResponse.SecurityGroupRule.Id)
 
 	return nil
-}
-
-func directionMapper(direction string) string {
-	if direction == "inbound" {
-		return "ingress"
-	}
-
-	return "egress"
 }
 
 func resourceSecurityGroupRuleUpdate(d *schema.ResourceData, m interface{}) error {
@@ -251,23 +139,8 @@ func resourceSecurityGroupRuleUpdate(d *schema.ResourceData, m interface{}) erro
 
 func resourceSecurityGroupRuleDelete(d *schema.ResourceData, m interface{}) error {
 
-	/*
-		{"action":"remove_firewall_rule","id":"3d88adc1-04c0-451f-9bb9-f9596a8e91fc"}
-	*/
-	deleteSecurityGroupRule := &DeleteRequest{
-		Action: "remove_firewall_rule",
-		Id:     d.Get("ems_ref").(string),
-	}
-
-	requestBody, err := json.Marshal(deleteSecurityGroupRule)
-
-	if err != nil {
-		return err
-	}
-
-	body := bytes.NewBuffer(requestBody)
-
-	_, err = requestApi("POST", fmt.Sprintf("security_groups/%s", d.Get("resource_id").(string)), body)
+	url := fmt.Sprintf("security_groups/%s/rules/%s", d.Get("security_group_id").(string), d.Get("id").(string))
+	_, err := requestApi("DELETE", url, nil)
 
 	if err != nil {
 		return err

@@ -50,10 +50,11 @@ func Provider() *schema.Provider {
 			},
 		},
 		ResourcesMap: map[string]*schema.Resource{
-			"icdc_service":        resourceService(),
-			"icdc_network":        resourceNetwork(),
-			"icdc_security_group": resourceSecurityGroup(),
-			"icdc_vpc":            resourceVPC(),
+			"icdc_service":             resourceService(),
+			"icdc_network":             resourceNetwork(),
+			"icdc_security_group":      resourceSecurityGroup(),
+			"icdc_security_group_rule": resourceSecurityGroupRule(),
+			"icdc_vpc":                 resourceVPC(),
 		},
 		DataSourcesMap: map[string]*schema.Resource{
 			"icdc_template": dataSourceICDCTemplate(),
@@ -87,7 +88,7 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 	account := strings.Split(authGroup, ".")[0]
 	role := strings.Split(authGroup, ".")[1]
 
-	gatewayUrl := "http://10.207.1.77:3000/api/v1/vpcs" //  findGatewayUrl(jwt.AccessToken, location)
+	gatewayUrl := findGatewayUrl(jwt.AccessToken, location) //"http://10.207.1.77:3000/api/v1"
 
 	os.Setenv("API_GATEWAY", gatewayUrl)
 	os.Setenv("ROLE", role)

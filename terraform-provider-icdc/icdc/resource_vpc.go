@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"os"
 
@@ -35,13 +35,13 @@ func resourceVPC() *schema.Resource {
 }
 
 func resourceVpcRead(d *schema.ResourceData, m interface{}) error {
-	url := fmt.Sprintf("%s", d.Get("id"))
+	url := fmt.Sprintf("vpcs/%s", d.Get("id"))
 	r, err := requestApi("GET", url, nil)
 	if err != nil {
 		return fmt.Errorf("error getting api services: %w", err)
 	}
 
-	resBody, err := ioutil.ReadAll(r.Body)
+	resBody, err := io.ReadAll(r.Body)
 	if err != nil {
 		fmt.Printf("client: could not read response body: %s\n", err)
 		os.Exit(1)
@@ -78,14 +78,14 @@ func resourceVpcCreate(d *schema.ResourceData, m interface{}) error {
 
 	log.Println(PrettyStruct(cloudVpcRaw))
 
-	url := ""
+	url := "vpcs"
 	r, err := requestApi("POST", url, body)
 
 	if err != nil {
 		return err
 	}
 
-	resBody, err := ioutil.ReadAll(r.Body)
+	resBody, err := io.ReadAll(r.Body)
 	if err != nil {
 		fmt.Printf("client: could not read response body: %s\n", err)
 		os.Exit(1)
@@ -126,14 +126,14 @@ func resourceVpcUpdate(d *schema.ResourceData, m interface{}) error {
 
 	log.Println(PrettyStruct(cloudVpcRaw))
 
-	url := fmt.Sprintf("%s", d.Get("id").(string))
+	url := fmt.Sprintf("vpcs/%s", d.Get("id").(string))
 	r, err := requestApi("PUT", url, body)
 
 	if err != nil {
 		return err
 	}
 
-	resBody, err := ioutil.ReadAll(r.Body)
+	resBody, err := io.ReadAll(r.Body)
 	if err != nil {
 		fmt.Printf("client: could not read response body: %s\n", err)
 		os.Exit(1)
@@ -153,7 +153,7 @@ func resourceVpcUpdate(d *schema.ResourceData, m interface{}) error {
 
 func resourceVpcDelete(d *schema.ResourceData, m interface{}) error {
 
-	url := fmt.Sprintf("%s", d.Get("id").(string))
+	url := fmt.Sprintf("vpcs/%s", d.Get("id").(string))
 	_, err := requestApi("DELETE", url, nil)
 
 	if err != nil {

@@ -59,3 +59,36 @@ resource icdc_subnet tf_sbnt {
   dns_nameserver = "178.172.238.130"
   network_protocol = "ipv4"
 }
+
+resource "icdc_network" "net-nina1" {
+  vpc_id = "3be5b80f-61de-4bc9-9fdc-1ff1b123bc11"
+  name = "tf-net-nina1"
+  mtu = "1200"
+  ip_version = "4"
+  dns_nameservers = "194.213.212.130"
+  enable_dhcp = "true"
+  cidr = "192.168.1.0/22"
+  gateway_ip = "192.168.1.1"
+}
+
+resource "icdc_vpc" "vpc_nina1" {
+  name = "vpc-name-1"
+  router = "nina_test_1"
+}
+
+resource "icdc_security_group_rule" "sgr_nina1" {
+  direction = "ingress"
+  ethertype = "IPv4"
+  remote_ip_prefix = "string"
+  port_range_max = "2203"
+  port_range_min = "2100"
+  protocol = "icmp"
+  security_group_id = "97b7b532-7e39-470f-b0e8-f75510d350a1"
+  remote_group_id = "f694c70c-dad3-465d-af85-af2b88224688"
+}}
+
+resource "icdc_security_group" "sg_nina" {
+  name = "sg-name-1"
+  description = "Allow incoming 22 and 3389 tcp"
+  vpc_id = "3be5b80f-61de-4bc9-9fdc-1ff1b123bc11"
+}

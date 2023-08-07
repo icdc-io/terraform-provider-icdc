@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"os"
 	"strconv"
@@ -39,10 +39,6 @@ func resourceNetwork() *schema.Resource {
 				Type:     schema.TypeString,
 				Required: true,
 			},
-			"network_id": {
-				Type:     schema.TypeString,
-				Required: true,
-			},
 			"cidr": {
 				Type:     schema.TypeString,
 				Required: true,
@@ -70,7 +66,7 @@ func resourceNetworkRead(d *schema.ResourceData, m interface{}) error {
 		return fmt.Errorf("error getting api services: %w", err)
 	}
 
-	resBody, err := ioutil.ReadAll(r.Body)
+	resBody, err := io.ReadAll(r.Body)
 	if err != nil {
 		fmt.Printf("client: could not read response body: %s\n", err)
 		os.Exit(1)
@@ -124,7 +120,7 @@ func resourceNetworkCreate(d *schema.ResourceData, m interface{}) error {
 		return err
 	}
 
-	resBody, err := ioutil.ReadAll(r.Body)
+	resBody, err := io.ReadAll(r.Body)
 	if err != nil {
 		fmt.Printf("client: could not read response body: %s\n", err)
 		os.Exit(1)
@@ -178,7 +174,7 @@ func resourceNetworkUpdate(d *schema.ResourceData, m interface{}) error {
 		return err
 	}
 
-	resBody, err := ioutil.ReadAll(r.Body)
+	resBody, err := io.ReadAll(r.Body)
 	if err != nil {
 		fmt.Printf("client: could not read response body: %s\n", err)
 		os.Exit(1)
