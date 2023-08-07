@@ -11,7 +11,7 @@ check:
 	golangci-lint run -v
 
 build:
-	go build -gcflags="all=-N -l" -o ${BINARY}
+	go build -o ${BINARY}
 release:
 	GOOS=darwin GOARCH=amd64 go build -o ./bin/${BINARY}_${VERSION}_darwin_amd64
 	GOOS=freebsd GOARCH=386 go build -o ./bin/${BINARY}_${VERSION}_freebsd_386
