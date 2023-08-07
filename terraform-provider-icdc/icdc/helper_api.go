@@ -18,7 +18,8 @@ func requestApi(method, url string, body io.Reader) (*http.Response, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", os.Getenv("AUTH_TOKEN")))
+	req.Header.Set("X_MIQ_GROUP", fmt.Sprintf("%s.%s", os.Getenv("ACCOUNT"), os.Getenv("ROLE")))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-AUTH-ACCOUNT", os.Getenv("ACCOUNT"))
 	req.Header.Set("X-AUTH-ROLE", os.Getenv("ROLE"))
@@ -28,8 +29,6 @@ func requestApi(method, url string, body io.Reader) (*http.Response, error) {
 		return nil, err
 	}
 
-	//decodedBody := json.NewDecoder(r.Body)
-	//	fmt.Println(decodedBody)
 	/* ahrechushkin: so, we need to close the body, but we can't do it here, because we need to return the body to the caller
 	defer r.Body.Close()
 	*/
