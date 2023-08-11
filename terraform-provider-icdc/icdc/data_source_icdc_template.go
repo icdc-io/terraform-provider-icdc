@@ -2,6 +2,7 @@ package icdc
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -12,7 +13,7 @@ func dataSourceICDCTemplate() *schema.Resource {
 		ReadContext: dataSourceICDCTemplateRead,
 		Schema: map[string]*schema.Schema{
 			"id": {
-				Type: schema.TypeString,
+				Type:     schema.TypeString,
 				Computed: true,
 			},
 			"name": {
@@ -55,12 +56,13 @@ type ICDCTemplateCollection struct {
 
 func fetchTemplatesByFilter(filter string) ([]ICDCTemplate, error) {
 	requestUrl := "api/compute/v1/service_templates?expand=resources&filter[]=name='%25" + filter + "%25'"
-	responseBody, err := requestApi("GET", requestUrl, nil)
+	response, err := requestApi("GET", requestUrl, nil)
 
 	if err != nil {
 		return nil, err
 	}
 
+	responseBody := json.NewDecoder(response.Body)
 	var icdcTemplateCollection *ICDCTemplateCollection
 	responseBody.Decode(&icdcTemplateCollection)
 

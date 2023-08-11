@@ -37,12 +37,12 @@ func Provider() *schema.Provider {
 				DefaultFunc: schema.EnvDefaultFunc("ICDC_LOCATION", nil),
 			},
 			"auth_server": &schema.Schema{
-				Type:				schema.TypeString,
-				Optional: 	true,
-				Sensitive: 	true,
-				Default: 		"login.icdc.io",
+				Type:      schema.TypeString,
+				Optional:  true,
+				Sensitive: true,
+				Default:   "login.icdc.io",
 			},
-			"auth_group": &schema.Schema{
+			"auth_group": {
 				Type:        schema.TypeString,
 				Required:    true,
 				Sensitive:   true,
@@ -50,11 +50,13 @@ func Provider() *schema.Provider {
 			},
 		},
 		ResourcesMap: map[string]*schema.Resource{
-			"icdc_service":        resourceService(),
-			"icdc_subnet":         resourceSubnet(),
-			"icdc_security_group": resourceSecurityGroup(),
+			"icdc_service":             resourceService(),
+			"icdc_network":             resourceNetwork(),
+			"icdc_security_group":      resourceSecurityGroup(),
+			"icdc_security_group_rule": resourceSecurityGroupRule(),
+			"icdc_vpc":                 resourceVPC(),
 		},
-		DataSourcesMap:       map[string]*schema.Resource{
+		DataSourcesMap: map[string]*schema.Resource{
 			"icdc_template": dataSourceICDCTemplate(),
 		},
 		ConfigureContextFunc: providerConfigure,
@@ -86,13 +88,14 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 	account := strings.Split(authGroup, ".")[0]
 	role := strings.Split(authGroup, ".")[1]
 
-	gatewayUrl := findGatewayUrl(jwt.AccessToken, location)
+	gatewayUrl := findGatewayUrl(jwt.AccessToken, location) //"http://10.207.1.77:3000/api/v1"
 
 	os.Setenv("API_GATEWAY", gatewayUrl)
 	os.Setenv("ROLE", role)
 	os.Setenv("AUTH_TOKEN", jwt.AccessToken)
 	os.Setenv("LOCATION", location)
 	os.Setenv("ACCOUNT", account)
+	os.Setenv("USER", username)
 
 	return nil, diags
 }

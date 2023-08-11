@@ -1,5 +1,5 @@
 HOSTNAME=local.com
-NAMESPACE=ahrechushkin
+NAMESPACE=nuspenskaya
 NAME=icdc
 BINARY=terraform-provider-${NAME}
 VERSION=1.0.0
@@ -12,7 +12,6 @@ check:
 
 build:
 	go build -o ${BINARY}
-
 release:
 	GOOS=darwin GOARCH=amd64 go build -o ./bin/${BINARY}_${VERSION}_darwin_amd64
 	GOOS=freebsd GOARCH=386 go build -o ./bin/${BINARY}_${VERSION}_freebsd_386

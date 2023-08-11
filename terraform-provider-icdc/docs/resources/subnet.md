@@ -18,7 +18,7 @@ description: |-
 ### Required
 
 - `cidr` (String)
-- `dns_nameservers` (List of String)
+- `dns_nameservers` (String)
 - `gateway` (String)
 - `ip_version` (Number)
 - `name` (String)

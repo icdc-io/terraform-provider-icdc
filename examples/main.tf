@@ -2,7 +2,7 @@ terraform {
   required_providers {
     icdc = {
       version = "1.0.0"
-      source = "local.com/ahrechushkin/icdc"
+      source = "local.com/nuspenskaya/icdc"
     }
   }
 }
@@ -58,4 +58,37 @@ resource icdc_subnet tf_sbnt {
   gateway = "9.110.0.1"
   dns_nameserver = "178.172.238.130"
   network_protocol = "ipv4"
+}
+
+resource "icdc_network" "net-nina1" {
+  vpc_id = icdc_vpc.vpc_nina1.id
+  name = "tf-net-nina1"
+  mtu = "1200"
+  ip_version = "4"
+  dns_nameservers = "194.213.212.130"
+  enable_dhcp = "true"
+  cidr = "192.168.1.0/22"
+  gateway_ip = "192.168.1.1"
+}
+
+resource "icdc_vpc" "vpc_nina1" {
+  name = "vpc-name-1"
+  router = "nina_test_1"
+}
+
+resource "icdc_security_group_rule" "sgr_nina1" {
+  direction = "ingress"
+  ethertype = "IPv4"
+  remote_ip_prefix = "string"
+  port_range_max = "2203"
+  port_range_min = "2100"
+  protocol = "icmp"
+  security_group_id = icdc_security_group.sg_nina.id
+  remote_group_id = icdc_security_group.sg_nina.id
+}}
+
+resource "icdc_security_group" "sg_nina" {
+  name = "sg-name-3"
+  description = "Allow incoming 22 and 3389 tcp"
+  vpc_id = icdc_vpc.vpc_nina1.id
 }
