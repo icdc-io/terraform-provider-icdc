@@ -2,6 +2,7 @@ package icdc
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -9,15 +10,16 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
 func resourceNetwork() *schema.Resource {
 	return &schema.Resource{
-		Read:   resourceNetworkRead,
-		Create: resourceNetworkCreate,
-		Update: resourceNetworkUpdate,
-		Delete: resourceNetworkDelete,
+		ReadContext:   resourceNetworkRead,
+		CreateContext: resourceNetworkCreate,
+		UpdateContext: resourceNetworkUpdate,
+		DeleteContext: resourceNetworkDelete,
 		Schema: map[string]*schema.Schema{
 			"id": {
 				Type:     schema.TypeString,
@@ -59,11 +61,12 @@ func resourceNetwork() *schema.Resource {
 	}
 }
 
-func resourceNetworkRead(d *schema.ResourceData, m interface{}) error {
+func resourceNetworkRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	var diags diag.Diagnostics
 	url := fmt.Sprintf("vpcs/%s/networks/%s", d.Get("vpc_id").(string), d.Get("id").(string))
 	r, err := requestApi("GET", url, nil)
 	if err != nil {
-		return fmt.Errorf("error getting api services: %w", err)
+		return append(diags, diag.FromErr(err)...)
 	}
 
 	resBody, err := io.ReadAll(r.Body)
@@ -75,16 +78,17 @@ func resourceNetworkRead(d *schema.ResourceData, m interface{}) error {
 	var networtGetResponse *NetworkRequestResponse
 
 	if err = json.Unmarshal(resBody, &networtGetResponse); err != nil {
-		return fmt.Errorf("error decoding service response: %w", err)
+		return append(diags, diag.FromErr(err)...)
 	}
 
 	fmt.Println(PrettyStruct(networtGetResponse))
 	log.Println(PrettyStruct(networtGetResponse))
 	d.SetId(networtGetResponse.Network.Id)
-	return nil
+	return diags
 }
 
-func resourceNetworkCreate(d *schema.ResourceData, m interface{}) error {
+func resourceNetworkCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	var diags diag.Diagnostics
 	mtu, _ := strconv.Atoi(d.Get("mtu").(string))
 	ipv, _ := strconv.Atoi(d.Get("ip_version").(string))
 	enable_dhcp, _ := strconv.ParseBool(d.Get("enable_dhcp").(string))
@@ -106,7 +110,7 @@ func resourceNetworkCreate(d *schema.ResourceData, m interface{}) error {
 
 	requestBody, err := json.Marshal(cloudNetworkRaw)
 	if err != nil {
-		return fmt.Errorf("error marshaling service request: %w", err)
+		return append(diags, diag.FromErr(err)...)
 	}
 
 	body := bytes.NewBuffer(requestBody)
@@ -117,7 +121,7 @@ func resourceNetworkCreate(d *schema.ResourceData, m interface{}) error {
 	r, err := requestApi("POST", url, body)
 
 	if err != nil {
-		return err
+		return append(diags, diag.FromErr(err)...)
 	}
 
 	resBody, err := io.ReadAll(r.Body)
@@ -129,16 +133,17 @@ func resourceNetworkCreate(d *schema.ResourceData, m interface{}) error {
 	var networkRequestResponse *NetworkRequestResponse
 
 	if err = json.Unmarshal(resBody, &networkRequestResponse); err != nil {
-		return fmt.Errorf("error decoding service response: %w", err)
+		return append(diags, diag.FromErr(err)...)
 	}
 
 	fmt.Println(PrettyStruct(networkRequestResponse))
 	NetworkId := networkRequestResponse.Network.Id
 	d.SetId(NetworkId)
-	return nil
+	return diags
 }
 
-func resourceNetworkUpdate(d *schema.ResourceData, m interface{}) error {
+func resourceNetworkUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	var diags diag.Diagnostics
 	mtu, _ := strconv.Atoi(d.Get("mtu").(string))
 	ipv, _ := strconv.Atoi(d.Get("ip_version").(string))
 	enable_dhcp, _ := strconv.ParseBool(d.Get("enable_dhcp").(string))
@@ -160,7 +165,7 @@ func resourceNetworkUpdate(d *schema.ResourceData, m interface{}) error {
 
 	requestBody, err := json.Marshal(cloudNetworkRaw)
 	if err != nil {
-		return fmt.Errorf("error marshaling service request: %w", err)
+		return append(diags, diag.FromErr(err)...)
 	}
 
 	body := bytes.NewBuffer(requestBody)
@@ -171,7 +176,7 @@ func resourceNetworkUpdate(d *schema.ResourceData, m interface{}) error {
 	r, err := requestApi("PUT", url, body)
 
 	if err != nil {
-		return err
+		return append(diags, diag.FromErr(err)...)
 	}
 
 	resBody, err := io.ReadAll(r.Body)
@@ -183,26 +188,24 @@ func resourceNetworkUpdate(d *schema.ResourceData, m interface{}) error {
 	var networkRequestResponse *NetworkRequestResponse
 
 	if err = json.Unmarshal(resBody, &networkRequestResponse); err != nil {
-		return fmt.Errorf("error decoding service response: %w", err)
+		return append(diags, diag.FromErr(err)...)
 	}
 
 	fmt.Println(PrettyStruct(networkRequestResponse))
-	NetworkId := networkRequestResponse.Network.Id
-	d.SetId(NetworkId)
-	return nil
+	d.SetId(networkRequestResponse.Network.Id)
+	return diags
 }
 
-func resourceNetworkDelete(d *schema.ResourceData, m interface{}) error {
-
+func resourceNetworkDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	var diags diag.Diagnostics
 	url := fmt.Sprintf("vpcs/%s/networks/%s", d.Get("vpc_id").(string), d.Get("id").(string))
 	_, err := requestApi("DELETE", url, nil)
 
 	if err != nil {
-		return err
+		return append(diags, diag.FromErr(err)...)
 	}
 
 	d.SetId("")
 
-	return nil
-
+	return diags
 }

@@ -2,21 +2,23 @@ package icdc
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"os"
 
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
 func resourceSecurityGroup() *schema.Resource {
 	return &schema.Resource{
-		Read:   resourceSecurityGroupRead,
-		Create: resourceSecurityGroupCreate,
-		Update: resourceSecurityGroupUpdate,
-		Delete: resourceSecurityGroupDelete,
+		ReadContext:   resourceSecurityGroupRead,
+		CreateContext: resourceSecurityGroupCreate,
+		UpdateContext: resourceSecurityGroupUpdate,
+		DeleteContext: resourceSecurityGroupDelete,
 		Schema: map[string]*schema.Schema{
 			"id": {
 				Type:     schema.TypeString,
@@ -38,11 +40,12 @@ func resourceSecurityGroup() *schema.Resource {
 	}
 }
 
-func resourceSecurityGroupRead(d *schema.ResourceData, m interface{}) error {
+func resourceSecurityGroupRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	var diags diag.Diagnostics
 	url := fmt.Sprintf("vpcs/%s/security_groups/%s", d.Get("vpc_id").(string), d.Get("id").(string))
 	r, err := requestApi("GET", url, nil)
 	if err != nil {
-		return fmt.Errorf("error getting api services: %w", err)
+		return append(diags, diag.FromErr(err)...)
 	}
 
 	resBody, err := io.ReadAll(r.Body)
@@ -54,16 +57,17 @@ func resourceSecurityGroupRead(d *schema.ResourceData, m interface{}) error {
 	var securityGroupRequestResponse *SecurityGroupRequestResponse
 
 	if err = json.Unmarshal(resBody, &securityGroupRequestResponse); err != nil {
-		return fmt.Errorf("error decoding service response: %w", err)
+		return append(diags, diag.FromErr(err)...)
 	}
 
 	log.Println(PrettyStruct(securityGroupRequestResponse))
 	log.Println(securityGroupRequestResponse.SecurityGroup.Id)
 	d.SetId(securityGroupRequestResponse.SecurityGroup.Id)
-	return nil
+	return diags
 }
 
-func resourceSecurityGroupCreate(d *schema.ResourceData, m interface{}) error {
+func resourceSecurityGroupCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	var diags diag.Diagnostics
 	cloudGroupRaw := &GroupCreateBody{
 		SecurityGroup: SecurityGroupBody{
 			Name:        d.Get("name").(string),
@@ -73,7 +77,7 @@ func resourceSecurityGroupCreate(d *schema.ResourceData, m interface{}) error {
 
 	requestBody, err := json.Marshal(cloudGroupRaw)
 	if err != nil {
-		return fmt.Errorf("error marshaling service request: %w", err)
+		return append(diags, diag.FromErr(err)...)
 	}
 
 	body := bytes.NewBuffer(requestBody)
@@ -85,7 +89,7 @@ func resourceSecurityGroupCreate(d *schema.ResourceData, m interface{}) error {
 	r, err := requestApi("POST", url, body)
 
 	if err != nil {
-		return err
+		return append(diags, diag.FromErr(err)...)
 	}
 
 	resBody, err := io.ReadAll(r.Body)
@@ -97,7 +101,7 @@ func resourceSecurityGroupCreate(d *schema.ResourceData, m interface{}) error {
 	var securityGroupRequestResponse *SecurityGroupRequestResponse
 
 	if err = json.Unmarshal(resBody, &securityGroupRequestResponse); err != nil {
-		return fmt.Errorf("error decoding service response: %w", err)
+		return append(diags, diag.FromErr(err)...)
 	}
 
 	log.Println(PrettyStruct(securityGroupRequestResponse))
@@ -106,11 +110,11 @@ func resourceSecurityGroupCreate(d *schema.ResourceData, m interface{}) error {
 	log.Println(PrettyStruct(group_id))
 	d.SetId(group_id)
 
-	return nil
+	return diags
 }
 
-func resourceSecurityGroupUpdate(d *schema.ResourceData, m interface{}) error {
-
+func resourceSecurityGroupUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	var diags diag.Diagnostics
 	cloudGroupRaw := &GroupCreateBody{
 		SecurityGroup: SecurityGroupBody{
 			Name:        d.Get("name").(string),
@@ -120,7 +124,7 @@ func resourceSecurityGroupUpdate(d *schema.ResourceData, m interface{}) error {
 
 	requestBody, err := json.Marshal(cloudGroupRaw)
 	if err != nil {
-		return fmt.Errorf("error marshaling service request: %w", err)
+		return append(diags, diag.FromErr(err)...)
 	}
 
 	body := bytes.NewBuffer(requestBody)
@@ -132,7 +136,7 @@ func resourceSecurityGroupUpdate(d *schema.ResourceData, m interface{}) error {
 	r, err := requestApi("PUT", url, body)
 
 	if err != nil {
-		return err
+		return append(diags, diag.FromErr(err)...)
 	}
 
 	resBody, err := io.ReadAll(r.Body)
@@ -144,7 +148,7 @@ func resourceSecurityGroupUpdate(d *schema.ResourceData, m interface{}) error {
 	var securityGroupRequestResponse *SecurityGroupRequestResponse
 
 	if err = json.Unmarshal(resBody, &securityGroupRequestResponse); err != nil {
-		return fmt.Errorf("error decoding service response: %w", err)
+		return append(diags, diag.FromErr(err)...)
 	}
 
 	log.Println(PrettyStruct(securityGroupRequestResponse))
@@ -153,20 +157,19 @@ func resourceSecurityGroupUpdate(d *schema.ResourceData, m interface{}) error {
 	log.Println(PrettyStruct(group_id))
 	d.SetId(group_id)
 
-	return nil
+	return diags
 }
 
-func resourceSecurityGroupDelete(d *schema.ResourceData, m interface{}) error {
-
+func resourceSecurityGroupDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	var diags diag.Diagnostics
 	url := fmt.Sprintf("%s", d.Get("id").(string))
 	_, err := requestApi("DELETE", url, nil)
 
 	if err != nil {
-		return err
+		return append(diags, diag.FromErr(err)...)
 	}
 
 	d.SetId("")
 
-	return nil
-
+	return diags
 }

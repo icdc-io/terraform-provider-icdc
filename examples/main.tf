@@ -61,7 +61,7 @@ resource icdc_subnet tf_sbnt {
 }
 
 resource "icdc_network" "net-nina1" {
-  vpc_id = "3be5b80f-61de-4bc9-9fdc-1ff1b123bc11"
+  vpc_id = icdc_vpc.vpc_nina1.id
   name = "tf-net-nina1"
   mtu = "1200"
   ip_version = "4"
@@ -83,12 +83,12 @@ resource "icdc_security_group_rule" "sgr_nina1" {
   port_range_max = "2203"
   port_range_min = "2100"
   protocol = "icmp"
-  security_group_id = "97b7b532-7e39-470f-b0e8-f75510d350a1"
-  remote_group_id = "f694c70c-dad3-465d-af85-af2b88224688"
+  security_group_id = icdc_security_group.sg_nina.id
+  remote_group_id = icdc_security_group.sg_nina.id
 }}
 
 resource "icdc_security_group" "sg_nina" {
-  name = "sg-name-1"
+  name = "sg-name-3"
   description = "Allow incoming 22 and 3389 tcp"
-  vpc_id = "3be5b80f-61de-4bc9-9fdc-1ff1b123bc11"
+  vpc_id = icdc_vpc.vpc_nina1.id
 }

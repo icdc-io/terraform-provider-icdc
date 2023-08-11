@@ -226,6 +226,47 @@ type NetworkCreateBody struct {
 	Subnet SubnetParams `json:"subnet"`
 }
 
+type Network struct {
+	Id                  string `json:"id"`
+	Name                string `json:"name"`
+	TenantId            string `json:"tenant_id"`
+	Status              string `json:"status"`
+	PortSecurityEnabled bool   `json:"port_security_enabled"`
+	Mtu                 int    `json:"mtu"`
+	Subnet              struct {
+		Id              string `json:"id"`
+		Cidr            string `json:"cidr"`
+		NetworkId       string `json:"network_id"`
+		IpVersion       int    `json:"ip_version"`
+		TenantId        string `json:"tenant_id"`
+		RouterId        string `json:"router_id"`
+		EnableDhcp      bool   `json:"enable_dhcp"`
+		AllocationPools []struct {
+			Start string `json:"start"`
+			Stop  string `json:"stop"`
+		} `json:"allocation_pools"`
+		DnsNameservers []string `json:"dns_nameservers"`
+		Name           string   `json:"name"`
+		GatewayIp      string   `json:"gateway_ip"`
+	} `json:"subnet"`
+	Ports []struct {
+		Id           string `json:"id"`
+		Name         string `json:"name"`
+		NetworkId    string `json:"network_id"`
+		MacAddress   string `json:"mac_address"`
+		AdminStateUp bool   `json:"admin_state_up"`
+		DeviceId     string `json:"device_id"`
+		DeviceOwner  string `json:"device_owner"`
+		FixedIps     []struct {
+			IpAddress string `json:"ip_address"`
+			SubnetId  string `json:"subnet_id"`
+		} `json:"fixed_ips"`
+		SecuriyGroups []string `json:"security_groups"`
+		Type          string   `json:"type"`
+	} `json:"ports"`
+	Metadata int `json:"metadata"`
+}
+
 type SubnetParams struct {
 	Name      string `json:"name"`
 	IpVersion int    `json:"ip_version"`
@@ -242,14 +283,25 @@ type CloudNetworkRequest struct {
 
 // security group/rule
 type SecurityGroupRequestResponse struct {
-	SecurityGroup struct {
-		Id                 string               `json:"id"`
-		TenantId           string               `json:"tenant_id"`
-		RouterId           string               `json:"router_id"`
-		Description        string               `json:"description"`
-		Name               string               `json:"name"`
-		SecurityGroupRules []SecurityGroupRules `json:"security_group_rules"`
-	} `json:"security_group"`
+	SecurityGroup SecurityGroup `json:"security_group"`
+}
+
+type SecurityGroup struct {
+	Id                 string                    `json:"id"`
+	TenantId           string                    `json:"tenant_id"`
+	RouterId           string                    `json:"router_id"`
+	Description        string                    `json:"description"`
+	Name               string                    `json:"name"`
+	SecurityGroupRules []SecurityGroupRulesInVpc `json:"security_group_rules"`
+}
+
+type SecurityGroupInVpc struct {
+	Id                 string                    `json:"id"`
+	TenantId           string                    `json:"tenant_id"`
+	RouterId           string                    `json:"router_id"`
+	Description        string                    `json:"description"`
+	Name               string                    `json:"name"`
+	SecurityGroupRules []SecurityGroupRulesInVpc `json:"security_group_rules"`
 }
 
 type SecurityGroupRuleRequestResponse struct {
@@ -278,6 +330,19 @@ type SecurityGroupRules []struct {
 	PortRangeMin    string `json:"port_range_min"`
 	Protocol        string `json:"protocol"`
 	RemoteGroupId   string `json:"remote_group_id"`
+}
+
+type SecurityGroupRulesInVpc struct {
+	Id              string `json:"id"`
+	Direction       string `json:"direction"`
+	SecurityGroupId string `json:"security_group_id"`
+	Description     int    `json:"description"`
+	Erthertype      string `json:"erthertype"`
+	RemoteIpPrefix  int    `json:"remote_ip_prefix"`
+	PortRangeMax    int    `json:"port_range_max"`
+	PortRangeMin    int    `json:"port_range_min"`
+	Protocol        int    `json:"protocol"`
+	RemoteGroupId   int    `json:"remote_group_id"`
 }
 
 type GroupCreateBody struct {
@@ -312,12 +377,12 @@ type VpcGetResponse []struct {
 
 type VpcRequestResponse struct {
 	Vpc struct {
-		Id             string         `json:"id"`
-		Name           string         `json:"name"`
-		TenantId       string         `json:"tenant_id"`
-		Router         RouterResponse `json:"router"`
-		Networks       []string       `json:"networks"`
-		SecurityGroups []string       `json:"security_groups"`
+		Id             string               `json:"id"`
+		Name           string               `json:"name"`
+		TenantId       string               `json:"tenant_id"`
+		Router         RouterResponse       `json:"router"`
+		Networks       []Network            `json:"networks"`
+		SecurityGroups []SecurityGroupInVpc `json:"security_groups"`
 	} `json:"vpc"`
 }
 type RouterResponse struct {
@@ -326,7 +391,7 @@ type RouterResponse struct {
 	AdminStateUp        bool     `json:"admin_state_up"`
 	Status              string   `json:"status"`
 	TenantId            string   `json:"tenant_id"`
-	ExternalGatewayInfo string   `json:"external_gateway_info"`
+	ExternalGatewayInfo int      `json:"external_gateway_info"`
 	Routes              []string `json:"routes"`
 }
 

@@ -2,21 +2,23 @@ package icdc
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"os"
 
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
 func resourceSecurityGroupRule() *schema.Resource {
 	return &schema.Resource{
-		Read:   resourceSecurityGroupRuleRead,
-		Create: resourceSecurityGroupRuleCreate,
-		Update: resourceSecurityGroupRuleUpdate,
-		Delete: resourceSecurityGroupRuleDelete,
+		ReadContext:   resourceSecurityGroupRuleRead,
+		CreateContext: resourceSecurityGroupRuleCreate,
+		UpdateContext: resourceSecurityGroupRuleUpdate,
+		DeleteContext: resourceSecurityGroupRuleDelete,
 		Schema: map[string]*schema.Schema{
 			"id": {
 				Type:     schema.TypeString,
@@ -58,7 +60,8 @@ func resourceSecurityGroupRule() *schema.Resource {
 	}
 }
 
-func resourceSecurityGroupRuleCreate(d *schema.ResourceData, m interface{}) error {
+func resourceSecurityGroupRuleCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	var diags diag.Diagnostics
 	cloudGroupRuleRaw := &RuleCreateBody{
 		SecurityGroupRule: SecurityGroupRuleBody{
 			Direction:       d.Get("direction").(string),
@@ -73,7 +76,7 @@ func resourceSecurityGroupRuleCreate(d *schema.ResourceData, m interface{}) erro
 
 	requestBody, err := json.Marshal(cloudGroupRuleRaw)
 	if err != nil {
-		return fmt.Errorf("error marshaling service request: %w", err)
+		return append(diags, diag.FromErr(err)...)
 	}
 
 	body := bytes.NewBuffer(requestBody)
@@ -83,7 +86,7 @@ func resourceSecurityGroupRuleCreate(d *schema.ResourceData, m interface{}) erro
 	r, err := requestApi("POST", url, body)
 
 	if err != nil {
-		return err
+		return append(diags, diag.FromErr(err)...)
 	}
 	resBody, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -94,24 +97,25 @@ func resourceSecurityGroupRuleCreate(d *schema.ResourceData, m interface{}) erro
 	var securityGroupRuleRequestResponse *SecurityGroupRuleRequestResponse
 
 	if err = json.Unmarshal(resBody, &securityGroupRuleRequestResponse); err != nil {
-		return fmt.Errorf("error decoding service response: %w", err)
+		return append(diags, diag.FromErr(err)...)
 	}
 
 	fmt.Println(PrettyStruct(securityGroupRuleRequestResponse))
 	log.Println(PrettyStruct(securityGroupRuleRequestResponse))
 
-	sgroup_rule_id := securityGroupRuleRequestResponse.SecurityGroupRule.Id
-	log.Println(PrettyStruct(sgroup_rule_id))
-	d.SetId(sgroup_rule_id)
+	//sgroup_rule_id := securityGroupRuleRequestResponse.SecurityGroupRule.Id
+	// log.Println(PrettyStruct(sgroup_rule_id))
+	d.SetId(securityGroupRuleRequestResponse.SecurityGroupRule.Id)
 
 	return nil
 }
 
-func resourceSecurityGroupRuleRead(d *schema.ResourceData, m interface{}) error {
+func resourceSecurityGroupRuleRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	var diags diag.Diagnostics
 	url := fmt.Sprintf("rules/%s", d.Get("id").(string))
 	r, err := requestApi("GET", url, nil)
 	if err != nil {
-		return fmt.Errorf("error getting api services: %w", err)
+		return append(diags, diag.FromErr(err)...)
 	}
 
 	resBody, err := io.ReadAll(r.Body)
@@ -123,7 +127,7 @@ func resourceSecurityGroupRuleRead(d *schema.ResourceData, m interface{}) error 
 	var securityGroupRuleRequestResponse *SecurityGroupRuleRequestResponse
 
 	if err = json.Unmarshal(resBody, &securityGroupRuleRequestResponse); err != nil {
-		return fmt.Errorf("error decoding service response: %w", err)
+		return append(diags, diag.FromErr(err)...)
 	}
 
 	log.Println(PrettyStruct(securityGroupRuleRequestResponse))
@@ -133,17 +137,17 @@ func resourceSecurityGroupRuleRead(d *schema.ResourceData, m interface{}) error 
 	return nil
 }
 
-func resourceSecurityGroupRuleUpdate(d *schema.ResourceData, m interface{}) error {
+func resourceSecurityGroupRuleUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	return nil
 }
 
-func resourceSecurityGroupRuleDelete(d *schema.ResourceData, m interface{}) error {
-
+func resourceSecurityGroupRuleDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	var diags diag.Diagnostics
 	url := fmt.Sprintf("security_groups/%s/rules/%s", d.Get("security_group_id").(string), d.Get("id").(string))
 	_, err := requestApi("DELETE", url, nil)
 
 	if err != nil {
-		return err
+		return append(diags, diag.FromErr(err)...)
 	}
 
 	d.SetId("")
