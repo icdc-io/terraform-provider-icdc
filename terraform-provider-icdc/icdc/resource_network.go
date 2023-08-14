@@ -10,6 +10,7 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
@@ -64,6 +65,8 @@ func resourceNetwork() *schema.Resource {
 func resourceNetworkRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	var diags diag.Diagnostics
 	url := fmt.Sprintf("vpcs/%s/networks/%s", d.Get("vpc_id").(string), d.Get("id").(string))
+	tflog.Info(ctx, "Network read url:", map[string]any{"url": url})
+
 	r, err := requestApi("GET", url, nil)
 	if err != nil {
 		return append(diags, diag.FromErr(err)...)
@@ -81,8 +84,9 @@ func resourceNetworkRead(ctx context.Context, d *schema.ResourceData, m interfac
 		return append(diags, diag.FromErr(err)...)
 	}
 
-	fmt.Println(PrettyStruct(networtGetResponse))
-	log.Println(PrettyStruct(networtGetResponse))
+	ps, _ := PrettyStruct(networtGetResponse)
+	tflog.Info(ctx, "Network read response body:", map[string]any{"response": ps})
+
 	d.SetId(networtGetResponse.Network.Id)
 	return diags
 }
@@ -119,6 +123,8 @@ func resourceNetworkCreate(ctx context.Context, d *schema.ResourceData, m interf
 	log.Println(PrettyStruct(cloudNetworkRaw))
 
 	url := fmt.Sprintf("vpcs/%s/networks", d.Get("vpc_id").(string))
+	tflog.Info(ctx, "Network create url:", map[string]any{"url": url})
+
 	r, err := requestApi("POST", url, body)
 
 	if err != nil {
@@ -137,9 +143,10 @@ func resourceNetworkCreate(ctx context.Context, d *schema.ResourceData, m interf
 		return append(diags, diag.FromErr(err)...)
 	}
 
-	fmt.Println(PrettyStruct(networkRequestResponse))
-	NetworkId := networkRequestResponse.Network.Id
-	d.SetId(NetworkId)
+	ps, _ := PrettyStruct(networkRequestResponse)
+	tflog.Info(ctx, "Network create response body:", map[string]any{"response": ps})
+
+	d.SetId(networkRequestResponse.Network.Id)
 	return diags
 }
 
@@ -175,6 +182,8 @@ func resourceNetworkUpdate(ctx context.Context, d *schema.ResourceData, m interf
 	log.Println(PrettyStruct(cloudNetworkRaw))
 
 	url := fmt.Sprintf("vpcs/%s/networks/%s", d.Get("vpc_id").(string), d.Get("id").(string))
+	tflog.Info(ctx, "Network update url:", map[string]any{"url": url})
+
 	r, err := requestApi("PUT", url, body)
 
 	if err != nil {
@@ -193,7 +202,9 @@ func resourceNetworkUpdate(ctx context.Context, d *schema.ResourceData, m interf
 		return append(diags, diag.FromErr(err)...)
 	}
 
-	fmt.Println(PrettyStruct(networkRequestResponse))
+	ps, _ := PrettyStruct(networkRequestResponse)
+	tflog.Info(ctx, "Network update response body:", map[string]any{"response": ps})
+
 	d.SetId(networkRequestResponse.Network.Id)
 	return diags
 }
@@ -201,6 +212,8 @@ func resourceNetworkUpdate(ctx context.Context, d *schema.ResourceData, m interf
 func resourceNetworkDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	var diags diag.Diagnostics
 	url := fmt.Sprintf("vpcs/%s/networks/%s", d.Get("vpc_id").(string), d.Get("id").(string))
+	tflog.Info(ctx, "Network delete url:", map[string]any{"url": url})
+
 	_, err := requestApi("DELETE", url, nil)
 
 	if err != nil {

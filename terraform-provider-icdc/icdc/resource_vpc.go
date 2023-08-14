@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
@@ -38,7 +39,10 @@ func resourceVPC() *schema.Resource {
 
 func resourceVpcRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	var diags diag.Diagnostics
+
 	url := fmt.Sprintf("vpcs/%s", d.Get("id"))
+	tflog.Info(ctx, "Vpc read url:", map[string]any{"url": url})
+
 	r, err := requestApi("GET", url, nil)
 	if err != nil {
 		return append(diags, diag.FromErr(err)...)
@@ -49,15 +53,16 @@ func resourceVpcRead(ctx context.Context, d *schema.ResourceData, m interface{})
 		fmt.Printf("client: could not read response body: %s\n", err)
 		os.Exit(1)
 	}
-	log.Println(resBody)
+
 	var vpcRequestResponse *VpcRequestResponse
 
 	if err = json.Unmarshal(resBody, &vpcRequestResponse); err != nil {
 		return append(diags, diag.FromErr(err)...)
 	}
 
-	log.Println(PrettyStruct(vpcRequestResponse))
-	log.Println(vpcRequestResponse.Vpc.Id)
+	ps, _ := PrettyStruct(vpcRequestResponse)
+	tflog.Info(ctx, "Vpc read response body:", map[string]any{"response": ps})
+
 	d.SetId(vpcRequestResponse.Vpc.Id)
 	return diags
 }
@@ -84,6 +89,7 @@ func resourceVpcCreate(ctx context.Context, d *schema.ResourceData, m interface{
 	log.Println(PrettyStruct(cloudVpcRaw))
 
 	url := "vpcs"
+	tflog.Info(ctx, "Vpc create url:", map[string]any{"url": url})
 	r, err := requestApi("POST", url, body)
 
 	if err != nil {
@@ -102,12 +108,10 @@ func resourceVpcCreate(ctx context.Context, d *schema.ResourceData, m interface{
 		return append(diags, diag.FromErr(err)...)
 	}
 
-	fmt.Println(PrettyStruct(vpcRequestResponse))
-	log.Println(PrettyStruct(vpcRequestResponse))
+	ps, _ := PrettyStruct(vpcRequestResponse)
+	tflog.Info(ctx, "Vpc create response body:", map[string]any{"response": ps})
 
-	vpc_id := vpcRequestResponse.Vpc.Id
-	log.Println(PrettyStruct(vpc_id))
-	d.SetId(vpc_id)
+	d.SetId(vpcRequestResponse.Vpc.Id)
 	return diags
 }
 
@@ -133,6 +137,8 @@ func resourceVpcUpdate(ctx context.Context, d *schema.ResourceData, m interface{
 	log.Println(PrettyStruct(cloudVpcRaw))
 
 	url := fmt.Sprintf("vpcs/%s", d.Get("id").(string))
+	tflog.Info(ctx, "Vpc update url:", map[string]any{"url": url})
+
 	r, err := requestApi("PUT", url, body)
 
 	if err != nil {
@@ -151,15 +157,18 @@ func resourceVpcUpdate(ctx context.Context, d *schema.ResourceData, m interface{
 		return append(diags, diag.FromErr(err)...)
 	}
 
-	fmt.Println(PrettyStruct(vpcRequestResponse))
-	vpc_id := vpcRequestResponse.Vpc.Id
-	d.SetId(vpc_id)
+	ps, _ := PrettyStruct(vpcRequestResponse)
+	tflog.Info(ctx, "Vpc update response body:", map[string]any{"response": ps})
+
+	d.SetId(vpcRequestResponse.Vpc.Id)
 	return diags
 }
 
 func resourceVpcDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	var diags diag.Diagnostics
 	url := fmt.Sprintf("vpcs/%s", d.Get("id").(string))
+	tflog.Info(ctx, "Vpc delete url:", map[string]any{"url": url})
+
 	_, err := requestApi("DELETE", url, nil)
 
 	if err != nil {

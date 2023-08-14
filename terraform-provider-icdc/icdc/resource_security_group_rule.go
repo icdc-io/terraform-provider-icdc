@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
@@ -60,6 +61,36 @@ func resourceSecurityGroupRule() *schema.Resource {
 	}
 }
 
+func resourceSecurityGroupRuleRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	var diags diag.Diagnostics
+	url := fmt.Sprintf("rules/%s", d.Get("id").(string))
+	tflog.Info(ctx, "Group rule read url:", map[string]any{"url": url})
+
+	r, err := requestApi("GET", url, nil)
+	if err != nil {
+		return append(diags, diag.FromErr(err)...)
+	}
+
+	resBody, err := io.ReadAll(r.Body)
+	if err != nil {
+		fmt.Printf("client: could not read response body: %s\n", err)
+		os.Exit(1)
+	}
+
+	var securityGroupRuleRequestResponse *SecurityGroupRuleRequestResponse
+
+	if err = json.Unmarshal(resBody, &securityGroupRuleRequestResponse); err != nil {
+		return append(diags, diag.FromErr(err)...)
+	}
+
+	ps, _ := PrettyStruct(securityGroupRuleRequestResponse)
+	tflog.Info(ctx, "Security group rule read response body:", map[string]any{"response": ps})
+
+	d.SetId(securityGroupRuleRequestResponse.SecurityGroupRule.Id)
+
+	return nil
+}
+
 func resourceSecurityGroupRuleCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	var diags diag.Diagnostics
 	cloudGroupRuleRaw := &RuleCreateBody{
@@ -83,6 +114,8 @@ func resourceSecurityGroupRuleCreate(ctx context.Context, d *schema.ResourceData
 
 	log.Println(PrettyStruct(cloudGroupRuleRaw))
 	url := fmt.Sprintf("security_groups/%s/rules", d.Get("security_group_id").(string))
+	tflog.Info(ctx, "Group rule create url:", map[string]any{"url": url})
+
 	r, err := requestApi("POST", url, body)
 
 	if err != nil {
@@ -100,40 +133,10 @@ func resourceSecurityGroupRuleCreate(ctx context.Context, d *schema.ResourceData
 		return append(diags, diag.FromErr(err)...)
 	}
 
-	fmt.Println(PrettyStruct(securityGroupRuleRequestResponse))
-	log.Println(PrettyStruct(securityGroupRuleRequestResponse))
+	ps, _ := PrettyStruct(securityGroupRuleRequestResponse)
+	tflog.Info(ctx, "Security group rule create response body:", map[string]any{"response": ps})
 
-	//sgroup_rule_id := securityGroupRuleRequestResponse.SecurityGroupRule.Id
-	// log.Println(PrettyStruct(sgroup_rule_id))
 	d.SetId(securityGroupRuleRequestResponse.SecurityGroupRule.Id)
-
-	return nil
-}
-
-func resourceSecurityGroupRuleRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	var diags diag.Diagnostics
-	url := fmt.Sprintf("rules/%s", d.Get("id").(string))
-	r, err := requestApi("GET", url, nil)
-	if err != nil {
-		return append(diags, diag.FromErr(err)...)
-	}
-
-	resBody, err := io.ReadAll(r.Body)
-	if err != nil {
-		fmt.Printf("client: could not read response body: %s\n", err)
-		os.Exit(1)
-	}
-
-	var securityGroupRuleRequestResponse *SecurityGroupRuleRequestResponse
-
-	if err = json.Unmarshal(resBody, &securityGroupRuleRequestResponse); err != nil {
-		return append(diags, diag.FromErr(err)...)
-	}
-
-	log.Println(PrettyStruct(securityGroupRuleRequestResponse))
-	log.Println(securityGroupRuleRequestResponse.SecurityGroupRule.Id)
-	d.SetId(securityGroupRuleRequestResponse.SecurityGroupRule.Id)
-
 	return nil
 }
 
@@ -144,6 +147,8 @@ func resourceSecurityGroupRuleUpdate(ctx context.Context, d *schema.ResourceData
 func resourceSecurityGroupRuleDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	var diags diag.Diagnostics
 	url := fmt.Sprintf("security_groups/%s/rules/%s", d.Get("security_group_id").(string), d.Get("id").(string))
+	tflog.Info(ctx, "Group rule delete url:", map[string]any{"url": url})
+
 	_, err := requestApi("DELETE", url, nil)
 
 	if err != nil {
