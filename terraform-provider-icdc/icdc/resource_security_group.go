@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
@@ -43,6 +44,8 @@ func resourceSecurityGroup() *schema.Resource {
 func resourceSecurityGroupRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	var diags diag.Diagnostics
 	url := fmt.Sprintf("vpcs/%s/security_groups/%s", d.Get("vpc_id").(string), d.Get("id").(string))
+	tflog.Info(ctx, "Security group read url:", map[string]any{"url": url})
+
 	r, err := requestApi("GET", url, nil)
 	if err != nil {
 		return append(diags, diag.FromErr(err)...)
@@ -60,8 +63,9 @@ func resourceSecurityGroupRead(ctx context.Context, d *schema.ResourceData, m in
 		return append(diags, diag.FromErr(err)...)
 	}
 
-	log.Println(PrettyStruct(securityGroupRequestResponse))
-	log.Println(securityGroupRequestResponse.SecurityGroup.Id)
+	ps, _ := PrettyStruct(securityGroupRequestResponse)
+	tflog.Info(ctx, "Security group read response body:", map[string]any{"response": ps})
+
 	d.SetId(securityGroupRequestResponse.SecurityGroup.Id)
 	return diags
 }
@@ -86,7 +90,8 @@ func resourceSecurityGroupCreate(ctx context.Context, d *schema.ResourceData, m 
 	log.Println(PrettyStruct(cloudGroupRaw))
 
 	url := fmt.Sprintf("vpcs/%s/security_groups", d.Get("vpc_id").(string))
-	log.Println(url)
+	tflog.Info(ctx, "Security group create url:", map[string]any{"url": url})
+
 	r, err := requestApi("POST", url, body)
 
 	if err != nil {
@@ -105,12 +110,10 @@ func resourceSecurityGroupCreate(ctx context.Context, d *schema.ResourceData, m 
 		return append(diags, diag.FromErr(err)...)
 	}
 
-	log.Println(PrettyStruct(securityGroupRequestResponse))
+	ps, _ := PrettyStruct(securityGroupRequestResponse)
+	tflog.Info(ctx, "Security group create response body:", map[string]any{"response": ps})
 
-	group_id := securityGroupRequestResponse.SecurityGroup.Id
-	log.Println(PrettyStruct(group_id))
-	d.SetId(group_id)
-
+	d.SetId(securityGroupRequestResponse.SecurityGroup.Id)
 	return diags
 }
 
@@ -134,6 +137,7 @@ func resourceSecurityGroupUpdate(ctx context.Context, d *schema.ResourceData, m 
 	log.Println(PrettyStruct(cloudGroupRaw))
 
 	url := fmt.Sprintf("vpcs/%s/security_groups/%s", d.Get("vpc_id").(string), d.Get("id").(string))
+	tflog.Info(ctx, "Security group update url:", map[string]any{"url": url})
 
 	r, err := requestApi("PUT", url, body)
 
@@ -153,11 +157,10 @@ func resourceSecurityGroupUpdate(ctx context.Context, d *schema.ResourceData, m 
 		return append(diags, diag.FromErr(err)...)
 	}
 
-	log.Println(PrettyStruct(securityGroupRequestResponse))
+	ps, _ := PrettyStruct(securityGroupRequestResponse)
+	tflog.Info(ctx, "Security group update response body:", map[string]any{"response": ps})
 
-	group_id := securityGroupRequestResponse.SecurityGroup.Id
-	log.Println(PrettyStruct(group_id))
-	d.SetId(group_id)
+	d.SetId(securityGroupRequestResponse.SecurityGroup.Id)
 
 	return diags
 }
@@ -165,6 +168,8 @@ func resourceSecurityGroupUpdate(ctx context.Context, d *schema.ResourceData, m 
 func resourceSecurityGroupDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	var diags diag.Diagnostics
 	url := fmt.Sprintf("%s", d.Get("id").(string))
+	tflog.Info(ctx, "Security group delete url:", map[string]any{"url": url})
+
 	_, err := requestApi("DELETE", url, nil)
 
 	if err != nil {
