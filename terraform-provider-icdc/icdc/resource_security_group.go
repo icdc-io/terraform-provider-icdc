@@ -71,6 +71,7 @@ func resourceSecurityGroupCreate(ctx context.Context, d *schema.ResourceData, m 
 	cloudGroupRaw := &GroupCreateBody{
 		SecurityGroup: SecurityGroupBody{
 			Name:        d.Get("name").(string),
+			TenantId:    os.Getenv("ACCOUNT"),
 			Description: d.Get("description").(string),
 		},
 	}
@@ -118,6 +119,7 @@ func resourceSecurityGroupUpdate(ctx context.Context, d *schema.ResourceData, m 
 	cloudGroupRaw := &GroupCreateBody{
 		SecurityGroup: SecurityGroupBody{
 			Name:        d.Get("name").(string),
+			TenantId:    os.Getenv("ACCOUNT"),
 			Description: d.Get("description").(string),
 		},
 	}

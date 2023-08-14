@@ -66,7 +66,8 @@ func resourceVpcCreate(ctx context.Context, d *schema.ResourceData, m interface{
 	var diags diag.Diagnostics
 	cloudVpcRaw := &VpcCreateBody{
 		Vpc: VpcStructBody{
-			Name: d.Get("name").(string),
+			Name:     d.Get("name").(string),
+			TenantId: os.Getenv("ACCOUNT"),
 			Router: RouterCreateBody{
 				Name: d.Get("name").(string),
 			},
@@ -114,7 +115,8 @@ func resourceVpcUpdate(ctx context.Context, d *schema.ResourceData, m interface{
 	var diags diag.Diagnostics
 	cloudVpcRaw := &VpcCreateBody{
 		Vpc: VpcStructBody{
-			Name: d.Get("name").(string),
+			Name:     d.Get("name").(string),
+			TenantId: os.Getenv("ACCOUNT"),
 			Router: RouterCreateBody{
 				Name: d.Get("name").(string),
 			},
