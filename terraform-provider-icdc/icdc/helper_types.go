@@ -221,9 +221,10 @@ type NetworkRequestResponse struct {
 }
 
 type NetworkCreateBody struct {
-	Name   string       `json:"name"`
-	Mtu    int          `json:"mtu"`
-	Subnet SubnetParams `json:"subnet"`
+	Name     string       `json:"name"`
+	Mtu      int          `json:"mtu"`
+	TenantId string       `json:"tenant_id"`
+	Subnet   SubnetParams `json:"subnet"`
 }
 
 type Network struct {
@@ -351,6 +352,7 @@ type GroupCreateBody struct {
 
 type SecurityGroupBody struct {
 	Name        string `json:"name"`
+	TenantId    string `json:"tenant_id"`
 	Description string `json:"description"`
 }
 
@@ -400,8 +402,9 @@ type VpcCreateBody struct {
 }
 
 type VpcStructBody struct {
-	Name   string           `json:"name"`
-	Router RouterCreateBody `json:"router"`
+	Name     string           `json:"name"`
+	TenantId string           `json:"tenant_id"`
+	Router   RouterCreateBody `json:"router"`
 }
 
 type RouterCreateBody struct {

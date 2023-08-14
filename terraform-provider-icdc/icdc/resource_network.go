@@ -95,8 +95,9 @@ func resourceNetworkCreate(ctx context.Context, d *schema.ResourceData, m interf
 
 	cloudNetworkRaw := &CloudNetworkRequest{
 		Network: NetworkCreateBody{
-			Name: d.Get("name").(string),
-			Mtu:  mtu,
+			Name:     d.Get("name").(string),
+			Mtu:      mtu,
+			TenantId: os.Getenv("ACCOUNT"),
 			Subnet: SubnetParams{
 				Name:           d.Get("name").(string),
 				IpVersion:      ipv,
@@ -150,8 +151,9 @@ func resourceNetworkUpdate(ctx context.Context, d *schema.ResourceData, m interf
 
 	cloudNetworkRaw := &CloudNetworkRequest{
 		Network: NetworkCreateBody{
-			Name: d.Get("name").(string),
-			Mtu:  mtu,
+			Name:     d.Get("name").(string),
+			TenantId: os.Getenv("ACCOUNT"),
+			Mtu:      mtu,
 			Subnet: SubnetParams{
 				Name:           d.Get("name").(string),
 				IpVersion:      ipv,

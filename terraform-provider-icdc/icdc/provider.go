@@ -88,7 +88,7 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 	account := strings.Split(authGroup, ".")[0]
 	role := strings.Split(authGroup, ".")[1]
 
-	gatewayUrl := findGatewayUrl(jwt.AccessToken, location) //"http://10.207.1.77:3000/api/v1"
+	gatewayUrl := findGatewayUrl(jwt.AccessToken, location)
 
 	os.Setenv("API_GATEWAY", gatewayUrl)
 	os.Setenv("ROLE", role)
