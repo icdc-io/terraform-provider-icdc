@@ -26,7 +26,7 @@ func Provider() *schema.Provider {
 			},
 			"password": &schema.Schema{
 				Type:        schema.TypeString,
-				Required:    true,
+				Optional:    true,
 				Sensitive:   true,
 				DefaultFunc: schema.EnvDefaultFunc("ICDC_PASSWORD", nil),
 			},

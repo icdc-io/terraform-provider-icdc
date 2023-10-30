@@ -4,7 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"os"
+//	"os"
+//	"strings"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -21,9 +22,13 @@ func resourceSubnet() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
+			"network_name": &schema.Schema{
+				Type: schema.TypeString,
+				Required: true,
+			},
 			"name": &schema.Schema{
 				Type:     schema.TypeString,
-				Required: true,
+				Computed: true,
 			},
 			"ems_ref": &schema.Schema{
 				Type:     schema.TypeString,
@@ -155,10 +160,8 @@ func resourceSubnetCreate(d *schema.ResourceData, m interface{}) error {
 
 	emsProviderId := emsProvider.Resources[0].Id
 
-
 	dnsNameserver := d.Get("dns_nameserver").(string)
 	dnsNameservers := []string{ dnsNameserver }
-
 
 	ipVersion := 4
 
@@ -166,16 +169,14 @@ func resourceSubnetCreate(d *schema.ResourceData, m interface{}) error {
 		ipVersion = 6
 	}
 
-
-
 	cloudNetworkRaw := &CloudNetworkRequest{
 		Action: "create",
-		Name:   d.Get("name").(string),
+		Name:   d.Get("network_name").(string),
 		Subnet: SubnetCreateBody{
 			Cidr:            d.Get("cidr").(string),
 			IpVersion:       ipVersion,
 			NetworkProtocol: d.Get("network_protocol").(string),
-			Name:            d.Get("name").(string),
+			Name:            d.Get("network_name").(string),
 			DnsNameservers:  dnsNameservers,
 		},
 	}
@@ -216,16 +217,16 @@ func resourceSubnetCreate(d *schema.ResourceData, m interface{}) error {
 		return err
 	}
 
-	time.Sleep(25 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	for _, network := range networkCollection.Resources {
-		if network.Name == fmt.Sprintf("%s_%s_%s", os.Getenv("LOCATION"), os.Getenv("ACCOUNT"), d.Get("name").(string)) {
+		if network.Subnets[0].Cidr == d.Get("cidr") {
 			err := d.Set("cloud_network_id", network.Id)
 
 			if err != nil {
 				return err
 			}
-
+	
 			err = d.Set("name", network.Subnets[0].Name)
 
 			if err != nil {

@@ -21,7 +21,7 @@ func requestApi(method, url string, body io.Reader) (*json.Decoder, error) {
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", os.Getenv("AUTH_TOKEN")))
-	req.Header.Set("X_MIQ_GROUP", fmt.Sprintf("%s.%s", os.Getenv("ACCOUNT"), os.Getenv("ROLE")))
+	req.Header.Set("x-miq-group", fmt.Sprintf("%s.%s", os.Getenv("ACCOUNT"), os.Getenv("ROLE")))
 
 	r, err := client.Do(req)
 	if err != nil {

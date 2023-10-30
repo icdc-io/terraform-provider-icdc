@@ -3,7 +3,7 @@ NAMESPACE=ahrechushkin
 NAME=icdc
 BINARY=terraform-provider-${NAME}
 VERSION=1.0.0
-OS_ARCH=linux_amd64
+OS_ARCH=darwin_arm64
 
 default: install
 
@@ -14,6 +14,7 @@ build:
 	go build -o ${BINARY}
 
 release:
+	GOOS=darwin GOARCH=arm64 go build -o ./bin/${BINARY}_${VERSION}_darwin_arm64
 	GOOS=darwin GOARCH=amd64 go build -o ./bin/${BINARY}_${VERSION}_darwin_amd64
 	GOOS=freebsd GOARCH=386 go build -o ./bin/${BINARY}_${VERSION}_freebsd_386
 	GOOS=freebsd GOARCH=amd64 go build -o ./bin/${BINARY}_${VERSION}_freebsd_amd64
