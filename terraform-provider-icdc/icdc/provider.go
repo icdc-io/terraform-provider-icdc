@@ -21,6 +21,7 @@ func Provider() *schema.Provider {
 		Schema: map[string]*schema.Schema{
 			"username": &schema.Schema{
 				Type:        schema.TypeString,
+				Description: "Your username(email) into ICDC platform",
 				Required:    true,
 				DefaultFunc: schema.EnvDefaultFunc("ICDC_USERNAME", nil),
 			},
@@ -28,24 +29,42 @@ func Provider() *schema.Provider {
 				Type:        schema.TypeString,
 				Optional:    true,
 				Sensitive:   true,
+				Description: "Your password",
 				DefaultFunc: schema.EnvDefaultFunc("ICDC_PASSWORD", nil),
 			},
 			"location": &schema.Schema{
 				Type:        schema.TypeString,
 				Required:    true,
 				Sensitive:   true,
+				Description: "Name of operated location",
 				DefaultFunc: schema.EnvDefaultFunc("ICDC_LOCATION", nil),
 			},
-			"auth_server": &schema.Schema{
+			"sso_url": &schema.Schema{
 				Type:				schema.TypeString,
 				Optional: 	true,
 				Sensitive: 	true,
-				Default: 		"login.icdc.io",
+				Description: "input sso url if your sso is not login.icdc.io",
+				Default: 		"login.icdc.io/auth",
+			},
+			"sso_realm": &schema.Schema{
+				Type:				schema.TypeString,
+				Optional: 	true,
+				Sensitive: 	true,
+				Description: "input your sso realm",
+				Default: 		"master",
+			},
+			"sso_client_id": &schema.Schema{
+				Type:				schema.TypeString,
+				Optional: 	true,
+				Sensitive: 	true,
+				Description: "input your sso client id",
+				Default: 		"insights",
 			},
 			"auth_group": &schema.Schema{
 				Type:        schema.TypeString,
 				Required:    true,
 				Sensitive:   true,
+				Description: "setup auth_group. it contain two parts: ACCOUNT.ROLE",
 				DefaultFunc: schema.EnvDefaultFunc("ICDC_AUTH_GROUP", nil),
 			},
 		},
@@ -53,6 +72,8 @@ func Provider() *schema.Provider {
 			"icdc_service":        resourceService(),
 			"icdc_subnet":         resourceSubnet(),
 			"icdc_security_group": resourceSecurityGroup(),
+			"icdc_dns_zone":			 resourceDnsZone(),
+			"icdc_dns_record":		 resourceDnsRecord(),
 		},
 		DataSourcesMap:       map[string]*schema.Resource{
 			"icdc_template": dataSourceICDCTemplate(),
@@ -66,12 +87,14 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 	password := d.Get("password").(string)
 	location := d.Get("location").(string)
 	authGroup := d.Get("auth_group").(string)
-	authServer := d.Get("auth_server").(string)
+	ssoUrl := d.Get("sso_url").(string)
+	ssoRealm := d.Get("sso_realm").(string)
+	ssoClientId := d.Get("sso_client_id").(string)
 
 	var diags diag.Diagnostics
 
-	var url = fmt.Sprintf("https://%s/auth/realms/master/protocol/openid-connect/token", authServer)
-	var buf = []byte("username=" + username + "&password=" + password + "&client_id=insights&grant_type=password")
+	var url = fmt.Sprintf("https://%s/realms/%s/protocol/openid-connect/token", ssoUrl, ssoRealm)
+	var buf = []byte("username=" + username + "&password=" + password + "&client_id=" + ssoClientId + "&grant_type=password")
 	var jwt JwtToken
 	resp, _ := http.Post(url, "application/x-www-form-urlencoded", bytes.NewBuffer(buf))
 	body, _ := io.ReadAll(resp.Body)
