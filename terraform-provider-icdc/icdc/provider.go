@@ -86,12 +86,16 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 	ssoClientId := d.Get("sso_client_id").(string)
 
 	var diags diag.Diagnostics
-	
-	jwt, _ := getJwt(username, password, ssoUrl, ssoRealm, ssoClientId)
+
+	jwt, err := getJwt(username, password, ssoUrl, ssoRealm, ssoClientId)
+
+	if err != nil {
+		return nil, err
+	}
 
 	account := strings.Split(authGroup, ".")[0]
 	role := strings.Split(authGroup, ".")[1]
-    
+
 	jwtClaims, diags := jwt.Claims()
 	gatewayUrl := jwtClaims.External.Locations[location]
 

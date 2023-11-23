@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"errors"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 )
@@ -27,8 +28,6 @@ type JwtClaims struct {
 }
 
 func getJwt(username, password, ssoUrl, ssoRealm, ssoClientId string) (Jwt, diag.Diagnostics) {
-	var diags diag.Diagnostics
-
 	client := &http.Client{
 		Timeout: time.Second * 10,
 	}
@@ -46,7 +45,7 @@ func getJwt(username, password, ssoUrl, ssoRealm, ssoClientId string) (Jwt, diag
 	req, err := http.NewRequest("POST", reqUrl, strings.NewReader(encodedData))
 
 	if err != nil {
-		return Jwt{}, append(diags, diag.FromErr(err)...)
+		return Jwt{}, diag.FromErr(err)
 	}
 
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
@@ -54,7 +53,7 @@ func getJwt(username, password, ssoUrl, ssoRealm, ssoClientId string) (Jwt, diag
 
 	response, err := client.Do(req)
 	if err != nil {
-		return Jwt{}, append(diags, diag.FromErr(err)...)
+		return Jwt{}, diag.FromErr(err)
 	}
 
 	defer response.Body.Close()
@@ -64,35 +63,38 @@ func getJwt(username, password, ssoUrl, ssoRealm, ssoClientId string) (Jwt, diag
 	body, err := io.ReadAll(response.Body)
 
 	if err != nil {
-		return Jwt{}, append(diags, diag.FromErr(err)...)
+		return Jwt{}, diag.FromErr(err)
+	}
+
+	if response.StatusCode != 200 {
+		err := errors.New(string(body))
+		return Jwt{}, diag.FromErr(err)
 	}
 
 	err = json.Unmarshal([]byte(body), &jwt)
 
 	if err != nil {
-		return Jwt{}, append(diags, diag.FromErr(err)...)
+		return Jwt{}, diag.FromErr(err)
 	}
 
 	return jwt, nil
 }
 
 func (j Jwt) Claims() (JwtClaims, diag.Diagnostics) {
-	var diags diag.Diagnostics
-
 	accessTokenBody := strings.Split(j.AccessToken, ".")[1]
 	accessTokenBody += strings.Repeat("=", ((4 - len(accessTokenBody)%4) % 4))
 
 	decodedBody, err := base64.StdEncoding.DecodeString(accessTokenBody)
 
 	if err != nil {
-		return JwtClaims{}, append(diags, diag.FromErr(err)...)
+		return JwtClaims{}, diag.FromErr(err)
 	}
 
 	var claims JwtClaims
 	err = json.Unmarshal(decodedBody, &claims)
 
 	if err != nil {
-		panic(err)
+		return JwtClaims{}, diag.FromErr(err)
 	}
 
 	return claims, nil
