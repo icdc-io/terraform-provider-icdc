@@ -2,10 +2,6 @@ package icdc
 
 import (
 	"context"
-	"encoding/base64"
-	"encoding/json"
-	"fmt"
-	//"log"
 	"os"
 	"strings"
 
@@ -90,7 +86,8 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 	ssoClientId := d.Get("sso_client_id").(string)
 
 	var diags diag.Diagnostics
-	jwt, diags := getJwt(username, password, ssoUrl, ssoRealm, ssoClientId)
+	
+	jwt, _ := getJwt(username, password, ssoUrl, ssoRealm, ssoClientId)
 
 	account := strings.Split(authGroup, ".")[0]
 	role := strings.Split(authGroup, ".")[1]
