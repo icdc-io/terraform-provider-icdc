@@ -20,6 +20,44 @@ type Service struct {
 	SshKey            string
 	ServiceTemplateId string     `json:"service_template_id"`
 	Vms               []VmParams `json:"vms"`
+	Networks          []ComputeNetwork `json:"networks"`
+}
+
+/*
+{
+"name": "dcz_devel_mm_test_net",
+"cidr": "10.10.10.0/24",
+"gateway": "10.10.10.1",
+"allocations":[{"hostname": "ahrechushkin-tf-02.devel.cmp.dcz.icdc.io", "ip": "10.10.10.12", "mac": "1c:dc:15:00:00:9d",…],
+"parameters":{"display_name": "Mm test net"}
+}
+*/
+type ComputeNetwork struct {
+	Name string `json:"name"`
+	Cidr string `json:"cidr"`
+	Gateway string `json:"gateway"`
+	Allocations []NetworkAllocation `json:"allocations"`
+}
+
+type NetworkAllocation struct {
+	Hostname string `json:"hostname"`
+	Ip       string `json:"ip"`
+	Mac      string `json:"mac"`
+	VmId     int `json:"vm_id"`
+	NicName  string `json:"nic_name"`
+	Type     string `json:"type"`
+}
+
+type VmAllocation struct {
+	Hostname string
+	Ip       string
+	Mac      string
+	VmId     string
+	NicName  string
+	Subnet   string
+	Gateway  string
+	Cidr     string
+	Type     string
 }
 
 type VmParams struct {
@@ -69,9 +107,39 @@ type ServiceResources struct {
 //	RegionNumber        string `json:"region_number"`
 }
 
+type ServiceV2Resources struct {
+	ServiceName 				string `json:"service_name"`
+	ServiceDescription  string `json:"service_description"`
+	VmMemory						string `json:"vm_memory"`
+	Cpu                 string `json:"cpu"`
+	SystemDiskType      string `json:"system_disk_type"`
+	SystemDiskSize      string `json:"system_disk_size"`
+	AdditionalDiskType  string `json:"additional_disk_type"`
+	AdditionalDiskSize  string `json:"additional_disk_size"`
+	Vlan                string `json:"vlan"`
+	PassAuth						string `json:"pass_auth"`
+	Password            string `json:"password"`
+	SecurityGroup       string `json:"security_group"`
+	SshKey              string `json:"ssh_key"`
+	NumberOfVms         string `json:"number_of_vms"`
+	UserData            string `json:"user_data"`
+	ManagedAccess       string `json:"managed_access"`
+	ServiceTemplateHref string `json:"service_template_href"`
+}
+
+type Instance struct {
+	id string `json:"id"`
+	name string `json:"name"`
+}
+
 type ServiceRequest struct {
 	Action    string             `json:"action"`
 	Resources []ServiceResources `json:"resources"`
+}
+
+type ServiceV2Request struct {
+	Action    string             `json:"action"`
+	Resources []ServiceV2Resources `json:"resources"`
 }
 
 type ServiceRequestResponse struct {
@@ -83,8 +151,6 @@ type ServiceRequestResponse struct {
 		Href               string `json:"href"`
 	} `json:"results"`
 }
-
-
 
 type ServiceMiqRequest struct {
 	MiqRequestTasks []struct {
