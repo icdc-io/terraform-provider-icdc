@@ -14,7 +14,7 @@ func Provider() *schema.Provider {
 		Schema: map[string]*schema.Schema{
 			"username": {
 				Type:        schema.TypeString,
-				Description: "Your username(email) into ICDC platform",
+				Description: "userid (email)",
 				Required:    true,
 				DefaultFunc: schema.EnvDefaultFunc("ICDC_USERNAME", nil),
 			},
@@ -22,35 +22,35 @@ func Provider() *schema.Provider {
 				Type:        schema.TypeString,
 				Optional:    true,
 				Sensitive:   true,
-				Description: "Your password",
+				Description: "user password",
 				DefaultFunc: schema.EnvDefaultFunc("ICDC_PASSWORD", nil),
 			},
 			"location": {
 				Type:        schema.TypeString,
 				Required:    true,
 				Sensitive:   true,
-				Description: "Name of operated location",
+				Description: "operated locations name",
 				DefaultFunc: schema.EnvDefaultFunc("ICDC_LOCATION", nil),
 			},
 			"sso_url": {
 				Type:        schema.TypeString,
 				Optional:    true,
 				Sensitive:   true,
-				Description: "input sso url if your sso is not login.icdc.io",
+				Description: "sso url, if your sso url is not `login.icdc.io`",
 				Default:     "login.icdc.io/auth",
 			},
 			"sso_realm": {
 				Type:        schema.TypeString,
 				Optional:    true,
 				Sensitive:   true,
-				Description: "input your sso realm",
+				Description: "input your sso realm (by default: master)",
 				Default:     "master",
 			},
 			"sso_client_id": {
 				Type:        schema.TypeString,
 				Optional:    true,
 				Sensitive:   true,
-				Description: "input your sso client id",
+				Description: "input your sso client_id",
 				Default:     "insights",
 			},
 			"auth_group": {
@@ -104,6 +104,7 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 	os.Setenv("AUTH_TOKEN", jwt.AccessToken)
 	os.Setenv("LOCATION", location)
 	os.Setenv("ACCOUNT", account)
+	os.Setenv("AUTH_GROUP", authGroup)
 
 	return nil, diags
 }
