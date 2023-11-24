@@ -3,8 +3,8 @@ package icdc
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
@@ -16,52 +16,52 @@ func resourceDnsRecord() *schema.Resource {
 		Update: resourceDnsRecordUpdate,
 		Delete: resourceDnsRecordDelete,
 		Schema: map[string]*schema.Schema{
-			"id": &schema.Schema{
+			"id": {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
-			"zone": &schema.Schema{
-				Type:     schema.TypeString,
-				Required: true,
+			"zone": {
+				Type:        schema.TypeString,
+				Required:    true,
 				Description: "ID of related domain zone",
 			},
-			"type": &schema.Schema{
-				Type:     schema.TypeString,
-				Required: true,
+			"type": {
+				Type:        schema.TypeString,
+				Required:    true,
 				Description: "One of supported dns types: A, AAAA, CNAME, NS, MX, SRV, TXT",
 			},
-			"name": &schema.Schema{
-				Type:     schema.TypeString,
-				Required: true,
+			"name": {
+				Type:        schema.TypeString,
+				Required:    true,
 				Description: "Name for your dns record without zone",
 			},
-			"data": &schema.Schema{
-				Type:     schema.TypeString,
-				Required: true,
+			"data": {
+				Type:        schema.TypeString,
+				Required:    true,
 				Description: "Payload for dns record, e.g. IP-address, hostname, etc.",
 			},
-			"priority": &schema.Schema{
-				Type:     schema.TypeInt,
-				Optional: true,
+			"priority": {
+				Type:        schema.TypeInt,
+				Optional:    true,
 				Description: "Required for SRV, MX records",
 			},
-			"weight": &schema.Schema{
-				Type:     schema.TypeInt,
-				Optional: true,
+			"weight": {
+				Type:        schema.TypeInt,
+				Optional:    true,
 				Description: "Required for SRV records",
 			},
-			"port": &schema.Schema{
-				Type:     schema.TypeInt,
-				Optional: true,
+			"port": {
+				Type:        schema.TypeInt,
+				Optional:    true,
 				Description: "Required for SRV records",
 			},
-			"ttl": &schema.Schema{
-				Type:     schema.TypeInt,
-				Required: true,
+			"ttl": {
+				Type:        schema.TypeInt,
+				Required:    true,
 				Description: "Time to live: how long to cache a query before requesting a new one",
 			},
-			"group": &schema.Schema{
-				Type:			schema.TypeString,
+			"group": {
+				Type:     schema.TypeString,
 				Computed: true,
 			},
 		},
@@ -73,92 +73,70 @@ func resourceDnsRecordRead(d *schema.ResourceData, m interface{}) error {
 }
 
 func resourceDnsRecordCreate(d *schema.ResourceData, m interface{}) error {
-	if strings.ToLower(d.Get("type").(string)) == "srv" {
-		var dnsRecordRaw AddSrvRecord	
-
-		dnsRecordRaw.Record.Name = d.Get("name").(string)
-		dnsRecordRaw.Record.Type = d.Get("type").(string)
-		dnsRecordRaw.Record.Data = d.Get("data").(string)
-		dnsRecordRaw.Record.Ttl = d.Get("ttl").(int)
-		if d.Get("weight").(int) != 0 {
-			dnsRecordRaw.Record.Weight = d.Get("weight").(int)
-		}
-
-		if d.Get("port").(int) != 0 {
-			dnsRecordRaw.Record.Port = d.Get("port").(int) 
-		}
-
-		if d.Get("priority").(int) != 0 {
-			dnsRecordRaw.Record.Priority = d.Get("priority").(int)
-		}
-
-		requestBody, err := json.Marshal(dnsRecordRaw)
-
-		if err != nil {
-			return err
-		}
-	
-		body := bytes.NewBuffer(requestBody)
-	
-		_, err = requestApi("POST", fmt.Sprintf("api/dns/v1/zones/%s/records", d.Get("zone").(string)), body)
-	} else if strings.ToLower(d.Get("type").(string)) == "mx" {
-		var dnsRecordRaw AddSrvRecord	
-		dnsRecordRaw.Record.Name = d.Get("name").(string)
-		dnsRecordRaw.Record.Type = d.Get("type").(string)
-		dnsRecordRaw.Record.Data = d.Get("data").(string)
-		dnsRecordRaw.Record.Ttl = d.Get("ttl").(int)
-		dnsRecordRaw.Record.Priority = d.Get("priority").(int)
-
-		requestBody, err := json.Marshal(dnsRecordRaw)
-
-		if err != nil {
-			return err
-		}
-	
-		body := bytes.NewBuffer(requestBody)
-	
-		_, err = requestApi("POST", fmt.Sprintf("api/dns/v1/zones/%s/records", d.Get("zone").(string)), body)
-
-	} else {
-		var dnsRecordRaw AddDnsRecord
-
-		dnsRecordRaw.Record.Name = d.Get("name").(string)
-		dnsRecordRaw.Record.Type = d.Get("type").(string)
-		dnsRecordRaw.Record.Data = d.Get("data").(string)
-		dnsRecordRaw.Record.Ttl = d.Get("ttl").(int)
-
-		requestBody, err := json.Marshal(dnsRecordRaw)
-
-		if err != nil {
-			return err
-		}
-	
-		body := bytes.NewBuffer(requestBody)
-	
-		_, err = requestApi("POST", fmt.Sprintf("api/dns/v1/zones/%s/records", d.Get("zone").(string)), body)
+	record := DnsRecord{
+		Payload: DnsRecordBody{
+			Type: d.Get("type").(string),
+			Name: d.Get("name").(string),
+			Data: d.Get("data").(string),
+			Ttl:  d.Get("ttl").(int),
+		},
 	}
 
-	dnsRecordsList, err := requestApi("GET", fmt.Sprintf("api/dns/v1/zones/%s/records", d.Get("zone").(string)), nil)
+	recordPtr := &record
+	recordPtr.setAdditionalFields(d)
+
+	requestBody, err := json.Marshal(record)
 
 	if err != nil {
-		return err
+		return fmt.Errorf("can't serealize record payload: %+v", record)
 	}
 
-	var response *DnsRecordResponse                                     
+	payload := bytes.NewBuffer(requestBody)
+	requestAddRecordUrl := fmt.Sprintf("api/dns/v1/zones/%s/records", d.Get("zone").(string))
+	responseAddRecordBody, err := requestApi("POST", requestAddRecordUrl, payload)
 
-	err = dnsRecordsList.Decode(&response)
+	if err != nil {
+		return fmt.Errorf("the problem occurs creating DNS record: %s", err)
+	}
 
-	for i := range response.Data {
-		if response.Data[i].Data == d.Get("data").(string) && response.Data[i].Name == d.Get("name") {
-			id := fmt.Sprintf("%s.%s", response.Data[i].Id, response.Data[i].Name)
-			d.Set("group", response.Data[i].Group)
+	var addRecordResponse *responseAddDnsRecord
+	err = responseAddRecordBody.Decode(addRecordResponse)
+
+	if err != nil {
+		return fmt.Errorf("the problem occurs deserealizing response of create dns record %s", requestBody)
+	}
+
+	err = d.Set("group", addRecordResponse.Data.Group)
+
+	if err != nil {
+		return errors.New("can't set 'group' property to a new dns record")
+	}
+
+	requestRecordsListUrl := fmt.Sprintf("api/dns/v1/zones/%s/records", d.Get("zone").(string))
+	responseRecordsListBody, err := requestApi("GET", requestRecordsListUrl, nil)
+
+	if err != nil {
+		return fmt.Errorf("the problem occurs retrieve DNS record: %s", err)
+	}
+
+	var recordsList *responseListDnsRecords
+	err = responseRecordsListBody.Decode(recordsList)
+
+	if err != nil {
+		return fmt.Errorf("the problem occurs deserealizing response of create dns records list of %s", d.Get("zone").(string))
+	}
+
+	for _, dnsRecord := range recordsList.Data {
+		if dnsRecord.Name == d.Get("name").(string) &&
+			dnsRecord.Data == d.Get("data").(string) {
+			id := fmt.Sprintf("%s.%s", dnsRecord.Id, dnsRecord.Name)
 			d.SetId(id)
 
 			return nil
 		}
 	}
 
-	return nil
+	return fmt.Errorf("the records wasn't created successfully")
 }
 
 func resourceDnsRecordUpdate(d *schema.ResourceData, m interface{}) error {
@@ -175,4 +153,3 @@ func resourceDnsRecordDelete(d *schema.ResourceData, m interface{}) error {
 
 	return nil
 }
-
