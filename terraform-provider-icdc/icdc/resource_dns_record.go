@@ -93,43 +93,37 @@ func resourceDnsRecordCreate(d *schema.ResourceData, m interface{}) error {
 
 	payload := bytes.NewBuffer(requestBody)
 	requestAddRecordUrl := fmt.Sprintf("api/dns/v1/zones/%s/records", d.Get("zone").(string))
-	responseAddRecordBody, err := requestApi("POST", requestAddRecordUrl, payload)
+	_, err = requestApi("POST", requestAddRecordUrl, payload)
 
 	if err != nil {
 		return fmt.Errorf("the problem occurs creating DNS record: %s", err)
-	}
-
-	var addRecordResponse *responseAddDnsRecord
-	err = responseAddRecordBody.Decode(addRecordResponse)
-
-	if err != nil {
-		return fmt.Errorf("the problem occurs deserealizing response of create dns record %s", requestBody)
-	}
-
-	err = d.Set("group", addRecordResponse.Data.Group)
-
-	if err != nil {
-		return errors.New("can't set 'group' property to a new dns record")
 	}
 
 	requestRecordsListUrl := fmt.Sprintf("api/dns/v1/zones/%s/records", d.Get("zone").(string))
 	responseRecordsListBody, err := requestApi("GET", requestRecordsListUrl, nil)
 
 	if err != nil {
-		return fmt.Errorf("the problem occurs retrieve DNS record: %s", err)
+		return fmt.Errorf("the problem occurs retrieve DNS records: %s", err)
 	}
 
 	var recordsList *responseListDnsRecords
-	err = responseRecordsListBody.Decode(recordsList)
+
+	err = responseRecordsListBody.Decode(&recordsList)
 
 	if err != nil {
-		return fmt.Errorf("the problem occurs deserealizing response of create dns records list of %s", d.Get("zone").(string))
+		return fmt.Errorf("the problem occurs deserealizing response of dns records list of %s with error %s", d.Get("zone").(string), err)
 	}
 
 	for _, dnsRecord := range recordsList.Data {
 		if dnsRecord.Name == d.Get("name").(string) &&
 			dnsRecord.Data == d.Get("data").(string) {
 			id := fmt.Sprintf("%s.%s", dnsRecord.Id, dnsRecord.Name)
+			err = d.Set("group", dnsRecord.Group)
+
+			if err != nil {
+				return errors.New("can't set 'group' property to a new dns record")
+			}
+
 			d.SetId(id)
 
 			return nil

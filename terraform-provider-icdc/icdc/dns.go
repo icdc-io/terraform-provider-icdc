@@ -26,10 +26,9 @@ type DnsRecordBody struct {
 	Type     string `json:"type"`
 	Name     string `json:"name"`
 	Data     string `json:"data"`
-	Group    string `json:"group"`
-	Priority int    `json:"priority"`
-	Weight   int    `json:"weight"`
-	Port     int    `json:"port"`
+	Priority int    `json:"priority,omitempty"`
+	Weight   int    `json:"weight,omitempty"`
+	Port     int    `json:"port,omitempty"`
 	Ttl      int    `json:"ttl"`
 }
 
@@ -40,17 +39,13 @@ type DnsRecordDetails struct {
 	Ttl      int    `json:"ttl"`
 	Group    string `json:"group"`
 	Data     string `json:"data"`
-	Priority int    `json:"priority"`
-	Weight   int    `json:"weight"`
-	Port     int    `json:"port"`
+	Priority int    `json:"priority,omitempty"`
+	Weight   int    `json:"weight,omitempty"`
+	Port     int    `json:"port,omitempty"`
 }
 
 type responseListDnsRecords struct {
 	Data []DnsRecordDetails `json:"data"`
-}
-
-type responseAddDnsRecord struct {
-	Data DnsRecordBody `json:"data"`
 }
 
 func (r *DnsRecord) setAdditionalFields(d *schema.ResourceData) {
