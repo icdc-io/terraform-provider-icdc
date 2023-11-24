@@ -6,30 +6,16 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
-type MetadataDns struct {
-	Account string `json:"account"`
-	Owner   string `json:"owner"`
-	Zone    bool   `json:"zone"`
-	Service bool   `json:"service"`
-}
-
-type DnsZoneResponse struct {
-	Data []struct {
-		Name     string      `json:"name"`
-		Metadata MetadataDns `json:"metadata"`
-	} `json:"data"`
+type DnsZone struct {
+	Name string `json:"name"`
 }
 
 type AddDnsZone struct {
-	Zone struct {
-		Name string `json:"name"`
-	} `json:"zone"`
+	DnsZone `json:"zone"`
 }
 
 type AddDnsZoneResponse struct {
-	Data struct {
-		Name string `json:"name"`
-	} `json:"data"`
+	DnsZone `json:"data"`
 }
 
 type DnsRecord struct {

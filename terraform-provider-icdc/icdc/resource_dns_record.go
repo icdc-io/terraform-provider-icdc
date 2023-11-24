@@ -140,13 +140,13 @@ func resourceDnsRecordCreate(d *schema.ResourceData, m interface{}) error {
 }
 
 func resourceDnsRecordUpdate(d *schema.ResourceData, m interface{}) error {
-	return nil
+	return fmt.Errorf("unsupported action: update dns record")
 }
 func resourceDnsRecordDelete(d *schema.ResourceData, m interface{}) error {
 	_, err := requestApi("DELETE", fmt.Sprintf("api/dns/v1/zones/%s/records/%s", d.Get("zone").(string), d.Get("id").(string)), nil)
 
 	if err != nil {
-		return err
+		return fmt.Errorf("the problem occure delete dns record %+v", d)
 	}
 
 	d.SetId("")
