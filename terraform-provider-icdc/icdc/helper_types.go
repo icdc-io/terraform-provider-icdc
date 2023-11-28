@@ -224,36 +224,12 @@ type ChangeNetworkTypeRequest struct {
 	} `json:"resource"`
 }
 
-// Subnet structures
-type Network struct {
-	Id      string   `json:"id"`
-	Name    string   `json:"name"`
-	Subnets []Subnet `json:"cloud_subnets"`
-}
-type Subnet struct {
-	Id              string   `json:"id"`
-	Name            string   `json:"name"`
-	EmsRef          string   `json:"ems_ref"`
-	EmsId           string   `json:"ems_id"`
-	CloudNetworkId  string   `json:"cloud_network_id"`
-	Cidr            string   `json:"cidr"`
-	Gateway         string   `json:"gateway"`
-	IpVersion       int      `json:"ip_version"`
-	NetworkProtocol string   `json:"network_protocol"`
-	DnsNameservers  []string `json:"dns_nameservers"`
-	NetworkRouterId string   `json:"network_router_id"`
-}
-
 type SubnetCreateBody struct {
 	Cidr            string   `json:"cidr"`
 	IpVersion       int      `json:"ip_version"`
 	NetworkProtocol string   `json:"network_protocol"`
 	Name            string   `json:"name"`
 	DnsNameservers  []string `json:"dns_nameservers"`
-}
-
-type NetworkCollection struct {
-	Resources []Network `json:"resources"`
 }
 
 type CloudNetworkRequest struct {
@@ -325,13 +301,6 @@ type SecurityGroupRule struct {
 
 type SecurityGroupRulesCollection struct {
 	Rules []SecurityGroupRule `json:"firewall_rules"`
-}
-
-// General structures
-type EmsProvider struct {
-	Resources []struct {
-		Id string `json:"id"`
-	} `json:"resources"`
 }
 
 type DeleteRequest struct {
