@@ -2,13 +2,6 @@ package icdc
 
 import (
 	"context"
-
-	"bytes"
-	"encoding/base64"
-	"encoding/json"
-	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"strings"
 
@@ -19,48 +12,48 @@ import (
 func Provider() *schema.Provider {
 	return &schema.Provider{
 		Schema: map[string]*schema.Schema{
-			"username": &schema.Schema{
+			"username": {
 				Type:        schema.TypeString,
-				Description: "Your username(email) into ICDC platform",
+				Description: "userid (email)",
 				Required:    true,
 				DefaultFunc: schema.EnvDefaultFunc("ICDC_USERNAME", nil),
 			},
-			"password": &schema.Schema{
+			"password": {
 				Type:        schema.TypeString,
 				Optional:    true,
 				Sensitive:   true,
-				Description: "Your password",
+				Description: "user password",
 				DefaultFunc: schema.EnvDefaultFunc("ICDC_PASSWORD", nil),
 			},
-			"location": &schema.Schema{
+			"location": {
 				Type:        schema.TypeString,
 				Required:    true,
 				Sensitive:   true,
-				Description: "Name of operated location",
+				Description: "operated locations name",
 				DefaultFunc: schema.EnvDefaultFunc("ICDC_LOCATION", nil),
 			},
-			"sso_url": &schema.Schema{
-				Type:				schema.TypeString,
-				Optional: 	true,
-				Sensitive: 	true,
-				Description: "input sso url if your sso is not login.icdc.io",
-				Default: 		"login.icdc.io/auth",
+			"sso_url": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				Sensitive:   true,
+				Description: "sso url, if your sso url is not `login.icdc.io`",
+				Default:     "login.icdc.io/auth",
 			},
-			"sso_realm": &schema.Schema{
-				Type:				schema.TypeString,
-				Optional: 	true,
-				Sensitive: 	true,
-				Description: "input your sso realm",
-				Default: 		"master",
+			"sso_realm": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				Sensitive:   true,
+				Description: "input your sso realm (by default: master)",
+				Default:     "master",
 			},
-			"sso_client_id": &schema.Schema{
-				Type:				schema.TypeString,
-				Optional: 	true,
-				Sensitive: 	true,
-				Description: "input your sso client id",
-				Default: 		"insights",
+			"sso_client_id": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				Sensitive:   true,
+				Description: "input your sso client_id",
+				Default:     "insights",
 			},
-			"auth_group": &schema.Schema{
+			"auth_group": {
 				Type:        schema.TypeString,
 				Required:    true,
 				Sensitive:   true,
@@ -71,12 +64,12 @@ func Provider() *schema.Provider {
 		ResourcesMap: map[string]*schema.Resource{
 			"icdc_service":        resourceService(),
 			"icdc_instance_group": resourceServiceV2(),
-			"icdc_subnet":         resourceSubnet(),
+			"icdc_network":        resourceNetwork(),
 			"icdc_security_group": resourceSecurityGroup(),
-			"icdc_dns_zone":			 resourceDnsZone(),
-			"icdc_dns_record":		 resourceDnsRecord(),
+			"icdc_dns_zone":       resourceDnsZone(),
+			"icdc_dns_record":     resourceDnsRecord(),
 		},
-		DataSourcesMap:       map[string]*schema.Resource{
+		DataSourcesMap: map[string]*schema.Resource{
 			"icdc_template": dataSourceICDCTemplate(),
 		},
 		ConfigureContextFunc: providerConfigure,
@@ -94,59 +87,24 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 
 	var diags diag.Diagnostics
 
-	var url = fmt.Sprintf("https://%s/realms/%s/protocol/openid-connect/token", ssoUrl, ssoRealm)
-	var buf = []byte("username=" + username + "&password=" + password + "&client_id=" + ssoClientId + "&grant_type=password")
-	var jwt JwtToken
-	resp, _ := http.Post(url, "application/x-www-form-urlencoded", bytes.NewBuffer(buf))
-	body, _ := io.ReadAll(resp.Body)
-	err := json.Unmarshal([]byte(body), &jwt)
-
-	defer resp.Body.Close()
+	jwt, err := getJwt(username, password, ssoUrl, ssoRealm, ssoClientId)
 
 	if err != nil {
-		return nil, diags
+		return nil, err
 	}
 
 	account := strings.Split(authGroup, ".")[0]
 	role := strings.Split(authGroup, ".")[1]
 
-	gatewayUrl := findGatewayUrl(jwt.AccessToken, location)
+	jwtClaims, diags := jwt.Claims()
+	gatewayUrl := jwtClaims.External.Locations[location]
 
 	os.Setenv("API_GATEWAY", gatewayUrl)
 	os.Setenv("ROLE", role)
 	os.Setenv("AUTH_TOKEN", jwt.AccessToken)
 	os.Setenv("LOCATION", location)
 	os.Setenv("ACCOUNT", account)
+	os.Setenv("AUTH_GROUP", authGroup)
 
 	return nil, diags
-}
-
-type IcdcClaims struct {
-	External struct {
-		Locations map[string]string `json:"locations"`
-	} `json:"external"`
-}
-
-func findGatewayUrl(token string, location string) string {
-
-	base64TokenClaims := strings.Split(token, ".")[1]
-
-	base64TokenClaims += strings.Repeat("=", ((4 - len(base64TokenClaims)%4) % 4))
-
-	fmt.Println(base64TokenClaims)
-	rawClaims, err := base64.StdEncoding.DecodeString(base64TokenClaims)
-
-	if err != nil {
-		panic(err)
-	}
-
-	var icdcClaims IcdcClaims
-
-	err = json.Unmarshal(rawClaims, &icdcClaims)
-
-	if err != nil {
-		panic(err)
-	}
-
-	return icdcClaims.External.Locations[location]
 }

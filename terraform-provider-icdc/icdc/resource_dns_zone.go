@@ -1,9 +1,10 @@
 package icdc
 
 import (
-	"fmt"
 	"bytes"
 	"encoding/json"
+	"fmt"
+
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
@@ -14,14 +15,14 @@ func resourceDnsZone() *schema.Resource {
 		Update: resourceDnsZoneUpdate,
 		Delete: resourceDnsZoneDelete,
 		Schema: map[string]*schema.Schema{
-			"id": &schema.Schema{
+			"id": {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
-			"name": &schema.Schema{
+			"name": {
 				Description: "dns zone name",
-				Type:     schema.TypeString,
-				Required: true,
+				Type:        schema.TypeString,
+				Required:    true,
 			},
 		},
 	}
@@ -32,38 +33,39 @@ func resourceDnsZoneRead(d *schema.ResourceData, m interface{}) error {
 }
 
 func resourceDnsZoneCreate(d *schema.ResourceData, m interface{}) error {
-	var dnsZoneRaw AddDnsZone
-	dnsZoneRaw.Zone.Name = d.Get("name").(string)
-
-	requestBody, err := json.Marshal(dnsZoneRaw)
-
-	if err != nil {
-		return err
+	dnsZone := AddDnsZone{
+		DnsZone{
+			Name: d.Get("name").(string),
+		},
 	}
 
-	body := bytes.NewBuffer(requestBody)
-
-	var response *AddDnsZoneResponse                                     
-
-	responseBody, err := requestApi("POST", "api/dns/v1/zones", body)
+	requestBody, err := json.Marshal(dnsZone)
 
 	if err != nil {
-		return err
+		return fmt.Errorf("cant serealize dns zone %+v", dnsZone)
 	}
 
-	err = responseBody.Decode(&response)
+	payload := bytes.NewBuffer(requestBody)
+	responseAddZoneBody, err := requestApi("POST", "api/dns/v1/zones", payload)
 
 	if err != nil {
-		return err
+		return fmt.Errorf("the probrem occurs creating dns zone, %s", err)
 	}
 
-	d.SetId(response.Data.Name)
+	var addDnsZoneResponse *AddDnsZoneResponse
 
+	err = responseAddZoneBody.Decode(&addDnsZoneResponse)
+
+	if err != nil {
+		return fmt.Errorf("the problem occurs decoding dns zone response body: %s", err)
+	}
+
+	d.SetId(addDnsZoneResponse.Name)
 	return nil
 }
 
 func resourceDnsZoneUpdate(d *schema.ResourceData, m interface{}) error {
-	return nil
+	return fmt.Errorf("unsupported action: update dns zone")
 }
 
 func resourceDnsZoneDelete(d *schema.ResourceData, m interface{}) error {
@@ -78,4 +80,3 @@ func resourceDnsZoneDelete(d *schema.ResourceData, m interface{}) error {
 
 	return nil
 }
-

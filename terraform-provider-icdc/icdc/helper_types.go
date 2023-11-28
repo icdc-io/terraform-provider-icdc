@@ -1,18 +1,5 @@
 package icdc
 
-// Provider structures
-type IcdcToken struct {
-	ApiGateway string
-	Group      string
-	Jwt        string
-}
-
-type JwtToken struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
-}
-
-
 // Service structures
 type Service struct {
 	ID                string `json:"id"`
@@ -23,15 +10,6 @@ type Service struct {
 	Networks          []ComputeNetwork `json:"networks"`
 }
 
-/*
-{
-"name": "dcz_devel_mm_test_net",
-"cidr": "10.10.10.0/24",
-"gateway": "10.10.10.1",
-"allocations":[{"hostname": "ahrechushkin-tf-02.devel.cmp.dcz.icdc.io", "ip": "10.10.10.12", "mac": "1c:dc:15:00:00:9d",…],
-"parameters":{"display_name": "Mm test net"}
-}
-*/
 type ComputeNetwork struct {
 	Name string `json:"name"`
 	Cidr string `json:"cidr"`
@@ -246,36 +224,12 @@ type ChangeNetworkTypeRequest struct {
 	} `json:"resource"`
 }
 
-// Subnet structures
-type Network struct {
-	Id      string   `json:"id"`
-	Name    string   `json:"name"`
-	Subnets []Subnet `json:"cloud_subnets"`
-}
-type Subnet struct {
-	Id              string   `json:"id"`
-	Name            string   `json:"name"`
-	EmsRef          string   `json:"ems_ref"`
-	EmsId           string   `json:"ems_id"`
-	CloudNetworkId  string   `json:"cloud_network_id"`
-	Cidr            string   `json:"cidr"`
-	Gateway         string   `json:"gateway"`
-	IpVersion       int      `json:"ip_version"`
-	NetworkProtocol string   `json:"network_protocol"`
-	DnsNameservers  []string `json:"dns_nameservers"`
-	NetworkRouterId string   `json:"network_router_id"`
-}
-
 type SubnetCreateBody struct {
 	Cidr            string   `json:"cidr"`
 	IpVersion       int      `json:"ip_version"`
 	NetworkProtocol string   `json:"network_protocol"`
 	Name            string   `json:"name"`
 	DnsNameservers  []string `json:"dns_nameservers"`
-}
-
-type NetworkCollection struct {
-	Resources []Network `json:"resources"`
 }
 
 type CloudNetworkRequest struct {
@@ -349,13 +303,6 @@ type SecurityGroupRulesCollection struct {
 	Rules []SecurityGroupRule `json:"firewall_rules"`
 }
 
-// General structures
-type EmsProvider struct {
-	Resources []struct {
-		Id string `json:"id"`
-	} `json:"resources"`
-}
-
 type DeleteRequest struct {
 	Action string `json:"action"`
 	Id     string `json:"id"`
@@ -375,84 +322,4 @@ type ReconfigurationResponse struct {
 	Success bool   `json:"success"`
 	Message string `json:"message"`
 	Href    string `json:"href"`
-}
-
-type MetadataDns struct {
-	Account string `json:"account"`
-	Owner		string `json:"owner"`
-	Zone    bool `json:"zone"`
-	Service bool `json:"service"`
-}
-
-type DnsZoneResponse struct {
-	Data []struct {
-		Name string `json:"name"`
-		Metadata MetadataDns `json:"metadata"`
-	} `json:"data"`
-}
-
-type DnsRecordResponse struct {
-	Data []struct {
-		Type 		 string `json:"type"`
-		Id 	 		 string `json:"id"`
-		/*
-		Priority int `json:"priority"`
-		Weight 	 int `json:"weight"`
-		Port		 int `json:"port"`
-		*/
-		Ttl 		 int `json:"ttl"`
-		Group    string `json:"group"`
-		Data     string `json:"data"`
-		Name		 string `json:"name"`
-	} `json:"data"`
-}
-
-type AddDnsZone struct {
-	Zone struct {
-		Name string `json:"name"`
-	} `json:"zone"`
-}
-
-type AddDnsRecord struct {
-	Record struct {
-		Type     string `json:"type"`
-		Name     string `json:"name"`
-		Data     string `json:"data"`
-		Ttl 		 int `json:"ttl"`
-	} `json:"record"`
-}
-
-type AddMxRecord struct {
-	Record struct {
-		Type     string `json:"type"`
-		Name     string `json:"name"`
-		Data     string `json:"data"`
-		Priority int `json:"priority"`
-		Ttl 		 int `json:"ttl"`
-	} `json:"record"`
-}
-
-type AddSrvRecord struct {
-	Record struct {
-		Type     string `json:"type"`
-		Name     string `json:"name"`
-		Data     string `json:"data"`
-		Priority int `json:"priority"`
-		Weight 	 int `json:"weight"`
-		Port 		 int `json:"port"`
-		Ttl 		 int `json:"ttl"`
-	} `json:"record"`
-}
-
-
-type AddDnsZoneResponse struct {
-	Data struct {
-		Name string `json:"name"`
-	} `json:"data"`
-}
-
-type AddDnsRecordResponse struct {
-	Data struct {
-		Name string `json:"name"`
-	} `json:"data"`
 }
