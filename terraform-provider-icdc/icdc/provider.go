@@ -65,6 +65,7 @@ func Provider() *schema.Provider {
 			"icdc_service":        resourceService(),
 			"icdc_instance_group": resourceServiceV2(),
 			"icdc_subnet":         resourceSubnet(),
+			"icdc_network":        resourceNetwork(),
 			"icdc_security_group": resourceSecurityGroup(),
 			"icdc_dns_zone":       resourceDnsZone(),
 			"icdc_dns_record":     resourceDnsRecord(),
