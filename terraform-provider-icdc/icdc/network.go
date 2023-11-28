@@ -51,6 +51,11 @@ type addSubnetBody struct {
 	Name            string   `json:"name"`
 }
 
+type deleteNetworkBody struct {
+	Action string `json:"action"`
+	Id 	   string `json:"id"`
+}
+
 type EmsProvider struct {
 	Resources []struct {
 		Id string `json:"id"`

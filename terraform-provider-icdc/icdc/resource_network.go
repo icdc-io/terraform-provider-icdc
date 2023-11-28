@@ -26,6 +26,10 @@ func resourceNetwork() *schema.Resource {
 				Type:        schema.TypeString,
 				Required:    true,
 				Description: "name of your vpc network",
+				DiffSuppressOnRefresh: true,
+				DiffSuppressFunc: func(k, old, new string, d *schema.ResourceData) bool {
+					return convertName(old) == convertName(new)
+				},
 			},
 			"mtu": {
 				Type:        schema.TypeInt,
@@ -45,7 +49,7 @@ func resourceNetwork() *schema.Resource {
 						},
 						"name": {
 							Type:     schema.TypeString,
-							Optional: true,
+							Computed: true,
 						},
 						"cidr": {
 							Type:     schema.TypeString,
@@ -142,15 +146,19 @@ func resourceNetworkCreate(ctx context.Context, d *schema.ResourceData, m interf
 
 	createdNetwork, err := getNetworkObject(networkName, cidr, providerId)
 
-	subnetInterface := make([]interface{}, 1)
+	if err != nil {
+		return diag.FromErr(err)
+	}
 
 	createdSubnet := map[string]string{
 		"id":             createdNetwork.Subnets[0].Id,
 		"name":           createdNetwork.Subnets[0].Name,
+		"cidr":           createdNetwork.Subnets[0].Cidr,
 		"gateway":        createdNetwork.Subnets[0].Gateway,
 		"dns_nameserver": createdNetwork.Subnets[0].DnsNameservers[0],
 	}
 
+	subnetInterface := make([]interface{}, 1)
 	subnetInterface[0] = createdSubnet
 
 	if err != nil {
@@ -165,13 +173,73 @@ func resourceNetworkCreate(ctx context.Context, d *schema.ResourceData, m interf
 }
 
 func resourceNetworkDelete(d *schema.ResourceData, m interface{}) error {
-	return fmt.Errorf("not implemented yet")
+	pId, err := getProviderId()
+
+	if err != nil {
+		return fmt.Errorf("can't fetch provider_id: %s", err)
+	}
+
+	requestUrl := fmt.Sprintf("api/compute/v1/providers/%s/cloud_networks", pId)
+
+	payload := deleteNetworkBody{
+		Action: "delete",
+		Id:     d.Id(),
+	}
+
+	requestBody, err := json.Marshal(payload)
+
+	if err != nil {
+		return fmt.Errorf("can't marshalling delete network payload")
+	}
+	body := bytes.NewBuffer(requestBody)
+	_, err = requestApi("POST", requestUrl, body)
+
+	if err != nil {
+		return err
+	}
+
+	d.SetId("")
+
+	return nil
 }
 
 func resourceNetworkRead(d *schema.ResourceData, m interface{}) error {
-	return fmt.Errorf("not implemented yet")
+	requestUrl := fmt.Sprintf("api/compute/v1/cloud_networks/%s?expand=resources&attributes=cloud_subnets", d.Id())
+
+	responseBody, err := requestApi("GET", requestUrl, nil)
+
+	if err != nil {
+		return fmt.Errorf("can't fetch network details [%s]: %s", d.Id(), err)
+	}
+
+	var network *Network
+	err = responseBody.Decode(&network)
+
+	if err != nil {
+		return fmt.Errorf("cant parse response into network %+v object: %s", responseBody, err)
+	}
+	createdSubnet := map[string]string{
+		"id":             network.Subnets[0].Id,
+		"name":           network.Subnets[0].Name,
+		"cidr":           network.Subnets[0].Cidr,
+		"gateway":        network.Subnets[0].Gateway,
+		"dns_nameserver": network.Subnets[0].DnsNameservers[0],
+	}
+
+	subnetInterface := make([]interface{}, 1)
+	subnetInterface[0] = createdSubnet
+
+	err = d.Set("subnet", subnetInterface)
+
+	if err != nil {
+		return fmt.Errorf("can't apply changed subnet values: %s", err)
+	}
+
+	d.Set("name", network.Name)
+
+	return nil
 }
 
 func resourceNetworkUpdate(d *schema.ResourceData, m interface{}) error {
-	return fmt.Errorf("not implemented yet")
+	return fmt.Errorf("deprecated feature")
 }
