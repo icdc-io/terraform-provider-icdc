@@ -15,12 +15,12 @@ import (
 	"github.com/sethvargo/go-password/password"
 )
 
-func resourceServiceV2() *schema.Resource {
+func resourceInstanceGroup() *schema.Resource {
 	return &schema.Resource{
-		Read:          resourceServiceV2Read,
-		CreateContext: resourceServiceV2Create,
-		Update:        resourceServiceV2Update,
-		Delete:        resourceServiceV2Delete,
+		Read:          resourceInstanceGroupRead,
+		CreateContext: resourceInstanceGroupCreate,
+		Update:        resourceInstanceGroupUpdate,
+		Delete:        resourceInstanceGroupDelete,
 		Schema: map[string]*schema.Schema{
 			"id": {
 				Type:     schema.TypeString,
@@ -156,7 +156,7 @@ func resourceServiceV2() *schema.Resource {
 	}
 }
 
-func resourceServiceV2Create(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceInstanceGroupCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	var diags diag.Diagnostics
 
 	vlan := fmt.Sprintf("%s (%s)", d.Get("subnet").(string), d.Get("subnet").(string))
@@ -167,9 +167,9 @@ func resourceServiceV2Create(ctx context.Context, d *schema.ResourceData, m inte
 		password = generate_secure_password()
 	}
 
-	serviceRequest := &ServiceV2Request{
+	serviceRequest := &InstanceGroupRequest{
 		Action: "add",
-		Resources: []ServiceV2Resources{
+		Resources: []InstanceGroupResources{
 			{
 				ServiceName:         d.Get("name").(string),
 				ServiceDescription:  d.Get("description").(string),
@@ -412,15 +412,15 @@ func vmsAllocationsList(networks []ComputeNetwork) ([]VmAllocation, error) {
 
 }
 
-func resourceServiceV2Read(d *schema.ResourceData, m interface{}) error {
+func resourceInstanceGroupRead(d *schema.ResourceData, m interface{}) error {
 	return nil
 }
 
-func resourceServiceV2Update(d *schema.ResourceData, m interface{}) error {
+func resourceInstanceGroupUpdate(d *schema.ResourceData, m interface{}) error {
 	return nil
 }
 
-func resourceServiceV2Delete(d *schema.ResourceData, m interface{}) error {
+func resourceInstanceGroupDelete(d *schema.ResourceData, m interface{}) error {
 	serviceRequest := &ServiceRequest{
 		Action: "request_retire",
 	}

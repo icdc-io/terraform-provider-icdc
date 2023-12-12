@@ -85,7 +85,7 @@ type ServiceResources struct {
 //	RegionNumber        string `json:"region_number"`
 }
 
-type ServiceV2Resources struct {
+type InstanceGroupResources struct {
 	ServiceName 				string `json:"service_name"`
 	ServiceDescription  string `json:"service_description"`
 	VmMemory						string `json:"vm_memory"`
@@ -115,9 +115,9 @@ type ServiceRequest struct {
 	Resources []ServiceResources `json:"resources"`
 }
 
-type ServiceV2Request struct {
+type InstanceGroupRequest struct {
 	Action    string             `json:"action"`
-	Resources []ServiceV2Resources `json:"resources"`
+	Resources []InstanceGroupResources `json:"resources"`
 }
 
 type ServiceRequestResponse struct {
