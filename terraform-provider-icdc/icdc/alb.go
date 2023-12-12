@@ -13,7 +13,7 @@ type CloudGateway struct {
 }
 
 type AlbRoute struct {
-	Id                int          `json:"id,omitempty"`
+	Id                int       `json:"id,omitempty"`
 	Name              string       `json:"name"`
 	Hostname          string       `json:"hostname"`
 	Path              string       `json:"path"`
@@ -35,6 +35,7 @@ type Healthcheck struct {
 	Interval        int    `json:"interval"`
 	Timeout         int    `json:"timeout"`
 	FollowRedirects bool   `json:"follow_redirects"`
+	Method			  string       `json:"method"`
 }
 
 type AlbService struct {
@@ -97,5 +98,18 @@ func servicesByExtId(eIds []interface{}) []AlbService {
 }
 
 func (hc *Healthcheck) assignParams(d *schema.ResourceData) {
+
+	hcParams := d.Get("healthcheck").(*schema.Set)
+	hcParamsList := hcParams.List()
+	hcMap := hcParamsList[0].(map[string]interface{})
+
+	hc.Port = hcMap["port"].(int)
+	hc.Path = hcMap["path"].(string)
+	hc.Hostname = hcMap["hostname"].(string)
+	hc.FollowRedirects = hcMap["follow_redirects"].(bool)
+	hc.Interval = hcMap["interval"].(int)
+	hc.Timeout = hcMap["timeout"].(int)
+	hc.Scheme = hcMap["scheme"].(string)
+	hc.Method = hcMap["method"].(string)
 
 }

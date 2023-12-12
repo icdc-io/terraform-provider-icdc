@@ -68,6 +68,7 @@ func Provider() *schema.Provider {
 			"icdc_security_group": resourceSecurityGroup(),
 			"icdc_dns_zone":       resourceDnsZone(),
 			"icdc_dns_record":     resourceDnsRecord(),
+			"icdc_alb_route":	   resourceAlbRoute(),
 		},
 		DataSourcesMap: map[string]*schema.Resource{
 			"icdc_template": dataSourceICDCTemplate(),

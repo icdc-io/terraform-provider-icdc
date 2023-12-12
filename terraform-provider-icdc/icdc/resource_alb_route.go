@@ -17,7 +17,7 @@ func resourceAlbRoute() *schema.Resource {
 		Delete: resourceAlbRouteDelete,
 		Schema: map[string]*schema.Schema{
 			"id": {
-				Type:     schema.TypeInt,
+				Type:     schema.TypeString,
 				Computed: true,
 			},
 			"name": {
@@ -104,6 +104,11 @@ func resourceAlbRoute() *schema.Resource {
 							Optional: true,
 							Default:  true,
 						},
+						"method": {
+							Type: schema.TypeString,
+							Optional: true,
+							Default: "get",
+						},
 					},
 				},
 			},
@@ -115,7 +120,7 @@ func resourceAlbRouteCreate(d *schema.ResourceData, m interface{}) error {
 
 	services := servicesByExtId(d.Get("services").([]interface{}))
 
-	healthcheck := d.Get("healtcheck").(*schema.Set)
+	healthcheck := d.Get("healthcheck").(*schema.Set)
 	hc_list := healthcheck.List()
 
 	hc_enabled := len(hc_list) > 0
@@ -161,8 +166,7 @@ func resourceAlbRouteCreate(d *schema.ResourceData, m interface{}) error {
 		return err
 	}
 
-	routeId := strconv.Itoa(route.Id)
-	d.SetId(routeId)
+	d.SetId(strconv.Itoa(route.Id))
 
 	return nil
 }
