@@ -22,124 +22,124 @@ func resourceServiceV2() *schema.Resource {
 		Update:        resourceServiceV2Update,
 		Delete:        resourceServiceV2Delete,
 		Schema: map[string]*schema.Schema{
-			"id": &schema.Schema{
+			"id": {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
-			"name": &schema.Schema{
+			"name": {
 				Type:     schema.TypeString,
 				Required: true,
 			},
-			"description": &schema.Schema{
+			"description": {
 				Type:     schema.TypeString,
 				Optional: true,
 				Default:  "",
 			},
-			"cpu": &schema.Schema{
+			"cpu": {
 				Type:     schema.TypeString,
 				Required: true,
 			},
-			"memory_mb": &schema.Schema{
+			"memory_mb": {
 				Type:     schema.TypeString,
 				Required: true,
 			},
-			"system_disk_size": &schema.Schema{
+			"system_disk_size": {
 				Type:     schema.TypeString,
 				Required: true,
 			},
-			"system_disk_type": &schema.Schema{
+			"system_disk_type": {
 				Type:     schema.TypeString,
 				Required: true,
 			},
-			"subnet": &schema.Schema{
+			"subnet": {
 				Type:     schema.TypeString,
 				Required: true,
 			},
-			"additional_disk_size": &schema.Schema{
+			"additional_disk_size": {
 				Type:     schema.TypeString,
 				Optional: true,
 				Default:  nil,
 			},
-			"additional_disk_type": &schema.Schema{
+			"additional_disk_type": {
 				Type:     schema.TypeString,
 				Optional: true,
 			},
-			"instances_count": &schema.Schema{
+			"instances_count": {
 				Type:     schema.TypeString,
 				Required: true,
 			},
-			"template_id": &schema.Schema{
+			"template_id": {
 				Type:     schema.TypeString,
 				Required: true,
 			},
-			"user_data": &schema.Schema{
+			"user_data": {
 				Type:     schema.TypeString,
 				Optional: true,
 				Default:  "",
 			},
-			"managed_access": &schema.Schema{
+			"managed_access": {
 				Type:     schema.TypeString,
 				Optional: true,
 				Default:  "password_reset",
 			},
-			"pass_auth": &schema.Schema{
+			"pass_auth": {
 				Type:     schema.TypeString,
 				Required: true,
 			},
-			"password": &schema.Schema{
+			"password": {
 				Type:     schema.TypeString,
 				Required: true,
 			},
-			"ssh_key": &schema.Schema{
+			"ssh_key": {
 				Type:     schema.TypeString,
 				Optional: true,
 				Default:  nil,
 			},
-			"security_group": &schema.Schema{
+			"security_group": {
 				Type:     schema.TypeString,
 				Optional: true,
 				Default:  nil,
 			},
-			"instances": &schema.Schema{
+			"instances": {
 				Type:     schema.TypeList,
 				Computed: true,
 				Optional: true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
-						"id": &schema.Schema{
+						"id": {
 							Type:     schema.TypeString,
 							Computed: true,
 						},
-						"name": &schema.Schema{
+						"name": {
 							Type:     schema.TypeString,
 							Computed: true,
 						},
-						"networks": &schema.Schema{
+						"networks": {
 							Type:     schema.TypeList,
 							Computed: true,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
-									"subnet": &schema.Schema{
+									"subnet": {
 										Type:     schema.TypeString,
 										Computed: true,
 									},
-									"nic": &schema.Schema{
+									"nic": {
 										Type:     schema.TypeString,
 										Computed: true,
 									},
-									"ip": &schema.Schema{
+									"ip": {
 										Type:     schema.TypeString,
 										Computed: true,
 									},
-									"hostname": &schema.Schema{
+									"hostname": {
 										Type:     schema.TypeString,
 										Computed: true,
 									},
-									"mac": &schema.Schema{
+									"mac": {
 										Type:     schema.TypeString,
 										Computed: true,
 									},
-									"type": &schema.Schema{
+									"type": {
 										Type:     schema.TypeString,
 										Computed: true,
 									},
@@ -169,21 +169,23 @@ func resourceServiceV2Create(ctx context.Context, d *schema.ResourceData, m inte
 
 	serviceRequest := &ServiceV2Request{
 		Action: "add",
-		Resources: []ServiceV2Resources{ServiceV2Resources{
-			ServiceName:         d.Get("name").(string),
-			ServiceDescription:  d.Get("description").(string),
-			Cpu:                 d.Get("cpu").(string),
-			VmMemory:            d.Get("memory_mb").(string),
-			SystemDiskType:      d.Get("system_disk_type").(string),
-			SystemDiskSize:      d.Get("system_disk_size").(string),
-			Vlan:                vlan,
-			PassAuth:            d.Get("pass_auth").(string),
-			Password:            password,
-			ManagedAccess:       d.Get("managed_access").(string),
-			SecurityGroup:       d.Get("security_group").(string),
-			NumberOfVms:         d.Get("instances_count").(string),
-			ServiceTemplateHref: fmt.Sprintf("/api/service_templates/%s", d.Get("template_id").(string)),
-		},
+		Resources: []ServiceV2Resources{
+			{
+				ServiceName:         d.Get("name").(string),
+				ServiceDescription:  d.Get("description").(string),
+				Cpu:                 d.Get("cpu").(string),
+				VmMemory:            d.Get("memory_mb").(string),
+				SystemDiskType:      d.Get("system_disk_type").(string),
+				SystemDiskSize:      d.Get("system_disk_size").(string),
+				Vlan:                vlan,
+				PassAuth:            d.Get("pass_auth").(string),
+				Password:            password,
+				ManagedAccess:       d.Get("managed_access").(string),
+				SecurityGroup:       d.Get("security_group").(string),
+				NumberOfVms:         d.Get("instances_count").(string),
+				ServiceTemplateHref: fmt.Sprintf("/api/service_templates/%s", d.Get("template_id").(string)),
+				UserData:            d.Get("user_data").(string),
+			},
 		},
 	}
 
@@ -253,9 +255,6 @@ func resourceServiceV2Create(ctx context.Context, d *schema.ResourceData, m inte
 		return append(diags, diag.FromErr(err)...)
 	}
 
-	
-
-	
 	err = resource.RetryContext(ctx, d.Timeout(schema.TimeoutCreate), func() *resource.RetryError {
 		requestUrl := fmt.Sprintf("api/compute/v1/services/%s?expand=resources&attributes=networks", serviceId)
 		responseBody, err = requestApi("GET", requestUrl, nil)
@@ -272,12 +271,12 @@ func resourceServiceV2Create(ctx context.Context, d *schema.ResourceData, m inte
 		}
 		log.Println("Waiting for networks config applying")
 
-        //we need to fetch all allocations with type - nic and non-empty ip addresses
+		//we need to fetch all allocations with type - nic and non-empty ip addresses
 		allocationsCount := 0
 		allocations, _ := vmsAllocationsList(service.Networks)
 		log.Println("DEBUG ALLOCATIONS LIST:", allocations)
 		for _, allocation := range allocations {
-			if (allocation.Ip != "" && allocation.Type == "nic") {
+			if allocation.Ip != "" && allocation.Type == "nic" {
 				allocationsCount += 1
 			}
 		}

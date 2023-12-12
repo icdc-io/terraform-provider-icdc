@@ -3,8 +3,10 @@ module terraform-provider-icdc
 go 1.19
 
 require (
+	github.com/3th1nk/cidr v0.2.0
 	github.com/hashicorp/terraform-plugin-sdk/v2 v2.21.0
 	github.com/r3labs/diff/v3 v3.0.0
+	github.com/sethvargo/go-password v0.2.0
 )
 
 require (
