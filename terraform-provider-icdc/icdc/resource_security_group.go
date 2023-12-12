@@ -68,6 +68,7 @@ func resourceSecurityGroupCreate(d *schema.ResourceData, m interface{}) error {
 	if err != nil {
 		return err
 	}
+
 	var emsProvider *EmsProvider
 
 	err = responseBody.Decode(&emsProvider)
@@ -106,7 +107,7 @@ func resourceSecurityGroupCreate(d *schema.ResourceData, m interface{}) error {
 	}
 
 	if !taskResponse.Results[0].Success {
-		return fmt.Errorf("Error creating security group: %s", taskResponse.Results[0].Message)
+		return fmt.Errorf("error creating security group: %s", taskResponse.Results[0].Message)
 	}
 
 	taskId := taskResponse.Results[0].TaskId
