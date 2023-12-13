@@ -12,7 +12,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/sethvargo/go-password/password"
 )
 
 func resourceInstanceGroup() *schema.Resource {
@@ -308,107 +307,6 @@ func resourceInstanceGroupCreate(ctx context.Context, d *schema.ResourceData, m 
 	return nil
 }
 
-func instancesCount(serviceId string) (int, diag.Diagnostics) {
-	var diags diag.Diagnostics
-
-	requestUrl := fmt.Sprintf("api/compute/v1/services/%s?expand=resources&attributes=vms", serviceId)
-	responseBody, err := requestApi("GET", requestUrl, nil)
-
-	if err != nil {
-		return 0, append(diags, diag.FromErr(err)...)
-	}
-
-	var service *Service
-
-	err = responseBody.Decode(&service)
-	if err != nil {
-		return 0, append(diags, diag.FromErr(err)...)
-	}
-
-	return len(service.Vms), nil
-}
-
-func fetchInstanceList(serviceId string) ([]interface{}, error) {
-
-	requestUrl := fmt.Sprintf("api/compute/v1/services/%s?expand=resources&attributes=vms,networks", serviceId)
-
-	responseBody, err := requestApi("GET", requestUrl, nil)
-
-	if err != nil {
-		return nil, err
-	}
-
-	var service *Service
-
-	err = responseBody.Decode(&service)
-	if err != nil {
-		return nil, err
-	}
-
-	instances := service.Vms
-	instancesList := make([]interface{}, len(instances))
-	vmsAllocations, _ := vmsAllocationsList(service.Networks)
-
-	for ndx, instance := range instances {
-		i := make(map[string]interface{})
-		i["id"] = instance.ID
-		i["name"] = instance.Name
-
-		var vmAllocations []VmAllocation
-
-		for _, allocation := range vmsAllocations {
-			if allocation.VmId == instance.ID {
-				vmAllocations = append(vmAllocations, allocation)
-			}
-		}
-
-		allocationsList := make([]interface{}, len(vmAllocations))
-
-		for ndx, allocation := range vmAllocations {
-			a := make(map[string]interface{})
-			a["subnet"] = allocation.Subnet
-			a["mac"] = allocation.Mac
-			a["ip"] = allocation.Ip
-			a["hostname"] = allocation.Hostname
-			a["nic"] = allocation.NicName
-			a["type"] = allocation.Type
-
-			allocationsList[ndx] = a
-		}
-
-		i["networks"] = allocationsList
-		instancesList[ndx] = i
-	}
-
-	return instancesList, nil
-}
-
-func vmsAllocationsList(networks []ComputeNetwork) ([]VmAllocation, error) {
-
-	var vmAllocations []VmAllocation
-
-	for _, network := range networks {
-		for _, allocation := range network.Allocations {
-			vmAllocation := VmAllocation{
-				VmId:     strconv.Itoa(allocation.VmId),
-				NicName:  allocation.NicName,
-				Mac:      allocation.Mac,
-				Hostname: allocation.Hostname,
-				Ip:       allocation.Ip,
-				Type:     allocation.Type,
-				Subnet:   network.Name,
-				Gateway:  network.Gateway,
-				Cidr:     network.Cidr,
-			}
-
-			vmAllocations = append(vmAllocations, vmAllocation)
-		}
-	}
-
-	return vmAllocations, nil
-
-}
-
 func resourceInstanceGroupRead(d *schema.ResourceData, m interface{}) error {
 	return nil
 }
@@ -439,13 +337,4 @@ func resourceInstanceGroupDelete(d *schema.ResourceData, m interface{}) error {
 	d.SetId("")
 
 	return nil
-}
-
-func generate_secure_password() string {
-	res, err := password.Generate(16, 4, 2, false, true)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	return res
 }
