@@ -274,15 +274,12 @@ func resourceInstanceGroupCreate(ctx context.Context, d *schema.ResourceData, m 
 		//we need to fetch all allocations with type - nic and non-empty ip addresses
 		allocationsCount := 0
 		allocations, _ := vmsAllocationsList(service.Networks)
-		log.Println("DEBUG ALLOCATIONS LIST:", allocations)
 		for _, allocation := range allocations {
 			if allocation.Ip != "" && allocation.Type == "nic" {
 				allocationsCount += 1
 			}
 		}
 
-		log.Println("INSTANCES COUNT")
-		log.Println("DEBUG ALLOCATIONS COUNT:", allocationsCount)
 		if allocationsCount >= instances_count {
 			return nil
 		}
