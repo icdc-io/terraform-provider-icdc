@@ -3,8 +3,10 @@ package icdc
 import (
 	"fmt"
 	"log"
+	"regexp"
 	"strconv"
 
+	"github.com/hashicorp/go-cty/cty"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/sethvargo/go-password/password"
 )
@@ -37,15 +39,6 @@ type InstanceGroupResources struct {
 	UserData            string `json:"user_data"`
 	ManagedAccess       string `json:"managed_access"`
 	ServiceTemplateHref string `json:"service_template_href"`
-}
-
-func generate_secure_password() string {
-	res, err := password.Generate(16, 4, 2, false, true)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	return res
 }
 
 func instancesCount(serviceId string) (int, diag.Diagnostics) {
@@ -147,4 +140,40 @@ func vmsAllocationsList(networks []ComputeNetwork) ([]VmAllocation, error) {
 
 	return vmAllocations, nil
 
+}
+
+func generate_secure_password() string {
+	p, err := password.Generate(16, 4, 2, false, true)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	match, err := regexp.MatchString(`^[^\d]*[A-Z][^\d]*\d[^\d]*.{6,}[^\d]*$`, p)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if !match {
+		generate_secure_password()
+	}
+	return p
+}
+
+func validatePassword(v interface{}, p cty.Path) diag.Diagnostics {
+	value := v.(string)
+
+	if value != "" {
+		match, err := regexp.MatchString(`^[^\d]*[A-Z][^\d]*\d[^\d]*.{6,}[^\d]*$`, value)
+
+		if err != nil {
+			return diag.FromErr(err)
+		}
+
+		if !match {
+			return diag.FromErr(fmt.Errorf("invalid password, for security reasons password requires minimum 8 symbols, at least 1 uppercase and 1 number (but not at first or last position)"))
+		}
+	}
+
+	return diag.Diagnostics{}
 }

@@ -86,8 +86,9 @@ func resourceInstanceGroup() *schema.Resource {
 				Required: true,
 			},
 			"password": {
-				Type:     schema.TypeString,
-				Required: true,
+				Type:             schema.TypeString,
+				Required:         true,
+				ValidateDiagFunc: validatePassword,
 			},
 			"ssh_key": {
 				Type:     schema.TypeString,
