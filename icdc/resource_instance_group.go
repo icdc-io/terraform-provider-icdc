@@ -12,15 +12,14 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/sethvargo/go-password/password"
 )
 
-func resourceServiceV2() *schema.Resource {
+func resourceInstanceGroup() *schema.Resource {
 	return &schema.Resource{
-		Read:          resourceServiceV2Read,
-		CreateContext: resourceServiceV2Create,
-		Update:        resourceServiceV2Update,
-		Delete:        resourceServiceV2Delete,
+		Read:          resourceInstanceGroupRead,
+		CreateContext: resourceInstanceGroupCreate,
+		Update:        resourceInstanceGroupUpdate,
+		Delete:        resourceInstanceGroupDelete,
 		Schema: map[string]*schema.Schema{
 			"id": {
 				Type:     schema.TypeString,
@@ -87,8 +86,9 @@ func resourceServiceV2() *schema.Resource {
 				Required: true,
 			},
 			"password": {
-				Type:     schema.TypeString,
-				Required: true,
+				Type:             schema.TypeString,
+				Required:         true,
+				ValidateDiagFunc: validatePassword,
 			},
 			"ssh_key": {
 				Type:     schema.TypeString,
@@ -156,7 +156,7 @@ func resourceServiceV2() *schema.Resource {
 	}
 }
 
-func resourceServiceV2Create(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceInstanceGroupCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	var diags diag.Diagnostics
 
 	vlan := fmt.Sprintf("%s (%s)", d.Get("subnet").(string), d.Get("subnet").(string))
@@ -167,9 +167,9 @@ func resourceServiceV2Create(ctx context.Context, d *schema.ResourceData, m inte
 		password = generate_secure_password()
 	}
 
-	serviceRequest := &ServiceV2Request{
+	serviceRequest := &InstanceGroupRequest{
 		Action: "add",
-		Resources: []ServiceV2Resources{
+		Resources: []InstanceGroupResources{
 			{
 				ServiceName:         d.Get("name").(string),
 				ServiceDescription:  d.Get("description").(string),
@@ -274,15 +274,12 @@ func resourceServiceV2Create(ctx context.Context, d *schema.ResourceData, m inte
 		//we need to fetch all allocations with type - nic and non-empty ip addresses
 		allocationsCount := 0
 		allocations, _ := vmsAllocationsList(service.Networks)
-		log.Println("DEBUG ALLOCATIONS LIST:", allocations)
 		for _, allocation := range allocations {
 			if allocation.Ip != "" && allocation.Type == "nic" {
 				allocationsCount += 1
 			}
 		}
 
-		log.Println("INSTANCES COUNT")
-		log.Println("DEBUG ALLOCATIONS COUNT:", allocationsCount)
 		if allocationsCount >= instances_count {
 			return nil
 		}
@@ -311,116 +308,15 @@ func resourceServiceV2Create(ctx context.Context, d *schema.ResourceData, m inte
 	return nil
 }
 
-func instancesCount(serviceId string) (int, diag.Diagnostics) {
-	var diags diag.Diagnostics
-
-	requestUrl := fmt.Sprintf("api/compute/v1/services/%s?expand=resources&attributes=vms", serviceId)
-	responseBody, err := requestApi("GET", requestUrl, nil)
-
-	if err != nil {
-		return 0, append(diags, diag.FromErr(err)...)
-	}
-
-	var service *Service
-
-	err = responseBody.Decode(&service)
-	if err != nil {
-		return 0, append(diags, diag.FromErr(err)...)
-	}
-
-	return len(service.Vms), nil
-}
-
-func fetchInstanceList(serviceId string) ([]interface{}, error) {
-
-	requestUrl := fmt.Sprintf("api/compute/v1/services/%s?expand=resources&attributes=vms,networks", serviceId)
-
-	responseBody, err := requestApi("GET", requestUrl, nil)
-
-	if err != nil {
-		return nil, err
-	}
-
-	var service *Service
-
-	err = responseBody.Decode(&service)
-	if err != nil {
-		return nil, err
-	}
-
-	instances := service.Vms
-	instancesList := make([]interface{}, len(instances))
-	vmsAllocations, _ := vmsAllocationsList(service.Networks)
-
-	for ndx, instance := range instances {
-		i := make(map[string]interface{})
-		i["id"] = instance.ID
-		i["name"] = instance.Name
-
-		var vmAllocations []VmAllocation
-
-		for _, allocation := range vmsAllocations {
-			if allocation.VmId == instance.ID {
-				vmAllocations = append(vmAllocations, allocation)
-			}
-		}
-
-		allocationsList := make([]interface{}, len(vmAllocations))
-
-		for ndx, allocation := range vmAllocations {
-			a := make(map[string]interface{})
-			a["subnet"] = allocation.Subnet
-			a["mac"] = allocation.Mac
-			a["ip"] = allocation.Ip
-			a["hostname"] = allocation.Hostname
-			a["nic"] = allocation.NicName
-			a["type"] = allocation.Type
-
-			allocationsList[ndx] = a
-		}
-
-		i["networks"] = allocationsList
-		instancesList[ndx] = i
-	}
-
-	return instancesList, nil
-}
-
-func vmsAllocationsList(networks []ComputeNetwork) ([]VmAllocation, error) {
-
-	var vmAllocations []VmAllocation
-
-	for _, network := range networks {
-		for _, allocation := range network.Allocations {
-			vmAllocation := VmAllocation{
-				VmId:     strconv.Itoa(allocation.VmId),
-				NicName:  allocation.NicName,
-				Mac:      allocation.Mac,
-				Hostname: allocation.Hostname,
-				Ip:       allocation.Ip,
-				Type:     allocation.Type,
-				Subnet:   network.Name,
-				Gateway:  network.Gateway,
-				Cidr:     network.Cidr,
-			}
-
-			vmAllocations = append(vmAllocations, vmAllocation)
-		}
-	}
-
-	return vmAllocations, nil
-
-}
-
-func resourceServiceV2Read(d *schema.ResourceData, m interface{}) error {
+func resourceInstanceGroupRead(d *schema.ResourceData, m interface{}) error {
 	return nil
 }
 
-func resourceServiceV2Update(d *schema.ResourceData, m interface{}) error {
+func resourceInstanceGroupUpdate(d *schema.ResourceData, m interface{}) error {
 	return nil
 }
 
-func resourceServiceV2Delete(d *schema.ResourceData, m interface{}) error {
+func resourceInstanceGroupDelete(d *schema.ResourceData, m interface{}) error {
 	serviceRequest := &ServiceRequest{
 		Action: "request_retire",
 	}
@@ -442,13 +338,4 @@ func resourceServiceV2Delete(d *schema.ResourceData, m interface{}) error {
 	d.SetId("")
 
 	return nil
-}
-
-func generate_secure_password() string {
-	res, err := password.Generate(16, 4, 2, false, true)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	return res
 }

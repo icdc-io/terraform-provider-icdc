@@ -85,39 +85,9 @@ type ServiceResources struct {
 //	RegionNumber        string `json:"region_number"`
 }
 
-type ServiceV2Resources struct {
-	ServiceName 				string `json:"service_name"`
-	ServiceDescription  string `json:"service_description"`
-	VmMemory						string `json:"vm_memory"`
-	Cpu                 string `json:"cpu"`
-	SystemDiskType      string `json:"system_disk_type"`
-	SystemDiskSize      string `json:"system_disk_size"`
-	AdditionalDiskType  string `json:"additional_disk_type"`
-	AdditionalDiskSize  string `json:"additional_disk_size"`
-	Vlan                string `json:"vlan"`
-	PassAuth						string `json:"pass_auth"`
-	Password            string `json:"password"`
-	SecurityGroup       string `json:"security_group"`
-	SshKey              string `json:"ssh_key"`
-	NumberOfVms         string `json:"number_of_vms"`
-	UserData            string `json:"user_data"`
-	ManagedAccess       string `json:"managed_access"`
-	ServiceTemplateHref string `json:"service_template_href"`
-}
-
-type Instance struct {
-	id string `json:"id"`
-	name string `json:"name"`
-}
-
 type ServiceRequest struct {
 	Action    string             `json:"action"`
 	Resources []ServiceResources `json:"resources"`
-}
-
-type ServiceV2Request struct {
-	Action    string             `json:"action"`
-	Resources []ServiceV2Resources `json:"resources"`
 }
 
 type ServiceRequestResponse struct {

@@ -1,81 +1,100 @@
-# Terraform Provider ICDC
+# Terraform ICDC Provider
 
-## Available resources
-||||||
-|---|---|---|---|---|
-||**Name**|**Internal name**|**Description**|**Documentation link**|
-|1.|Service|icdc_service|Service - abstract entity which includes inside - virtual machine, network port, backups, schedules, accesses|https://help.icdc.io/compute/en/Use_of_the_Services/index.html|
-|2.|Subnet|icdc_subnet| Fully isolated subnet which allow to assign virtual machines network ports|https://help.icdc.io/networking/en/VPC_Networks.html|
-|3.|Security group|icdc_security_group|OVN security group, allow to enable/disable incoming/upcoming trafic|
-|4.|Security group rule|icdc_security_group_rule| A security group rules|
+The [ICDC Provider](https://registry.terraform.io/providers/icdc-io/icdc/latest/docs) allows [Terraform](https://terraform.io) to manage [ICDC](https://icdc.io) resources.
 
-## Resources description
-|||||||
-|---|---|---|---|---|---|
-|icdc_service||||||
-||**parameter**|**description**|**type**|||
-||name|Service Name|string|||
-||service_temaplte_id|Template ID (define OS)|string|||
-||ssh_key|User ssh key for access to VMs|string|||
-||vms|A list of **vms(currently available only 1 per service)**|list|||
-|||**parameter**|**description**|**type**||
-|||cpu_cores|Count of CPU cores per vm|string||
-|||memory_mb|VM RAM size|string||
-|||system_disk_type|OS disk type|string||
-|||system_disk_size|OS disk size|string||
-|||subnet|Name of VM network|string||
-|||additional_disk|A list of additional_disks **(optional)** |list||
-||||**parameter**|**description**|**type**|
-||||additional_disk_type|Type of additional disk |string|
-||||additional_disk_size|Size of additional disk (in gb)|string|
-|---|---|---|---|---|---|
-|icdc_subnet||||||
-||**parameter**|**description**|**type**|||
-||name|subnet **external name(internal name will be applied after creating)**|string|||
-||cidr|cidr of subnet|string|||
-||network_protocol|IP protocol|string|||
-||ip_version|IP version *(will be removed in future)*|int|||
-||gateway|Address of subnet gateway|string|||
-||dns_nameservers|List of dns nameservers|list of strings|||
-|icdc_security_group||||||
-||**parameter**|**description**|**type**|||
-||name|Security group name|string|||
-|icdc_security_group_rule||||||
-||**parameter**|**description**|**type**|||
-||resource_id|security group id (database)|string|||
-||security_group_id|security group ems_ref|string|||
-||direction|trafik direction (ingress/egress)|string|||
-||protocol|TCP/UDP/Any|string|||
-||network_protocol|network protocol IPV4/IPV6|string|||
-||port|start_port value|string|||
-||end_port|end_port_value|string|||
-||source_ip_range|source ip range|string|||
-||
+## Usage example
 
-## Provider parameters
+```hcl
+# 1. Specify the version of the ICDC Provider to use
+terraform {
+  required_providers {
+    icdc = {
+      source = "icdc-io/icdc"
+      version = "=1.0.0"
+    }
+  }
+}
 
-|||
-|---|---|
-|**name**|**description**|
-|username|userid/user email which using to access to cloud|
-|password|user password|
-|location|managed location *(mb will be moved to resources)*|
-|location_number|the number of location *(will be removed in future)*| 
-|account|user account|
-|role|user role|
-|platform|platform name *(icdc/scdc)*|
+# 2. Configure the ICDC Provider
+provider "icdc" {
+    username = "username"
+    location = "user-region"
+    auth_group = "user-authgroup"
+}
 
+# 3. Create a virtual network
+resource icdc_network example {
+  name = "example-network"
+  subnet {
+    cidr = "11.0.0.0/26"
+    gateway = "11.0.0.1"
+    dns_nameserver = "8.8.8.8"
+  }
+}
 
+# 4. Use data-source for select needed version of OS
+data icdc_template centos-stream{
+  name = "CentOS Stream"
+  version = "9-230519"
+}
 
-## Usage
+# 5. Deploy instance group with selected OS into created network
+resource icdc_instance_group instance-group1 {
+  name = "instance-group-1"
+  template_id = data.icdc_template.centos-stream.id
+  subnet = icdc_network.example.name
+  cpu = "1"
+  memory_mb = "4096"
+  system_disk_type = "nvme"
+  system_disk_size = "30"
+  pass_auth = "temporary_password"
+  instances_count = "2"
+  user_data = <<-EOT
+            runcmd:
+            - dnf install -y httpd
+            - systemctl enable httpd --now
+        EOT
+}
 
-1. Clone respository and build provider for specified OS arch.
-```bash
-> git clone git@github.com:icdc-io/terraform-provider-icdc.git
-> cd terraform-provider-icdc/terraform-provider-icdc
-> make
+# 6. You can find out the list of supported resources below.
 ```
 
-2. Define TF Plan (see [example](examples/main.tf))
+## Supported services and resources
 
-3. Control your cloud resources with [terraform](https://www.terraform.io/docs)
+- [ICDC Networking](https://icdc.io/networking)
+  - [VPC Networks](./docs/resources/network.md)
+  - Security [Groups](./docs/resources/security_group.md) and [Rules](./docs/resources/security_group_rule.md)
+  - [Load Balancer routes](./docs/resources/alb_route.md)
+  - DNS [zones](./docs/resources/dns_zone.md) and [records](./docs/resources/dns_record.md)
+- [ICDC Compute](https://icdc.io/compute)
+  - [Services](./docs/resources/service.md)
+  - [Instance Groups](./docs/resources/instance_group.md)
+  - Datasource - [templates](./docs/data-sources/template.md)
+
+You can find out more examples of usage ICDC provider [here](./docs/guides/)
+
+## Developing the Provider
+If you wish to work on the provider, you'll first need [Go](https://go.dev/) installed on your machine (version 1.19+ is required). You'll also need to correctly setup a [GOPATH](https://go.dev/doc/code#GOPATH), as well as adding `$GOPATH/bin` to your `$PATH`
+
+```bash
+$ git clone git@github.com:icdc-io/terraform-provider-icdc.git
+$ cd terraform-provider-icdc
+$ make install
+
+$ terraform init
+$ terraform plan
+$ terraform apply
+```
+
+Make sure you correctly specified version of the provider, for development goals must be specified
+
+```hcl
+terraform {
+  required_providers {
+    icdc = {
+      source = "local.com/icdc-io/icdc"
+      version = "1.0.0"
+    }
+  }
+}
+```

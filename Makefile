@@ -1,5 +1,5 @@
 HOSTNAME=local.com
-NAMESPACE=ahrechushkin
+NAMESPACE=icdc-io
 NAME=icdc
 BINARY=terraform-provider-${NAME}
 VERSION=1.0.0
