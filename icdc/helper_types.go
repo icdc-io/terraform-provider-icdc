@@ -5,15 +5,15 @@ type Service struct {
 	ID                string `json:"id"`
 	Name              string `json:"name"`
 	SshKey            string
-	ServiceTemplateId string     `json:"service_template_id"`
-	Vms               []VmParams `json:"vms"`
+	ServiceTemplateId string           `json:"service_template_id"`
+	Vms               []VmParams       `json:"vms"`
 	Networks          []ComputeNetwork `json:"networks"`
 }
 
 type ComputeNetwork struct {
-	Name string `json:"name"`
-	Cidr string `json:"cidr"`
-	Gateway string `json:"gateway"`
+	Name        string              `json:"name"`
+	Cidr        string              `json:"cidr"`
+	Gateway     string              `json:"gateway"`
 	Allocations []NetworkAllocation `json:"allocations"`
 }
 
@@ -21,7 +21,7 @@ type NetworkAllocation struct {
 	Hostname string `json:"hostname"`
 	Ip       string `json:"ip"`
 	Mac      string `json:"mac"`
-	VmId     int `json:"vm_id"`
+	VmId     int    `json:"vm_id"`
 	NicName  string `json:"nic_name"`
 	Type     string `json:"type"`
 }
@@ -82,7 +82,7 @@ type ServiceResources struct {
 	Adminpassword       string `json:"adminpassword"`
 	SshKey              string `json:"ssh_key"`
 	ServiceTemplateHref string `json:"service_template_href"`
-//	RegionNumber        string `json:"region_number"`
+	// RegionNumber        string `json:"region_number"`
 }
 
 type ServiceRequest struct {

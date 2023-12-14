@@ -22,9 +22,9 @@ func dataSourceICDCTemplate() *schema.Resource {
 				Required: true,
 			},
 			"version": {
-				Type: 	  schema.TypeString,
+				Type:     schema.TypeString,
 				Optional: true,
-				Default: "",
+				Default:  "",
 			},
 		},
 	}
@@ -38,7 +38,7 @@ type ICDCTemplate struct {
 func dataSourceICDCTemplateRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	filter := d.Get("name").(string)
 	version := d.Get("version").(string)
-	
+
 	if version != "" {
 		filter += fmt.Sprintf(":%s", version)
 	}

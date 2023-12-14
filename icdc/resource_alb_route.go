@@ -105,9 +105,9 @@ func resourceAlbRoute() *schema.Resource {
 							Default:  true,
 						},
 						"method": {
-							Type: schema.TypeString,
+							Type:     schema.TypeString,
 							Optional: true,
-							Default: "get",
+							Default:  "get",
 						},
 					},
 				},
