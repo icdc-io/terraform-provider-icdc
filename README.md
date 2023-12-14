@@ -72,3 +72,29 @@ resource icdc_instance_group instance-group1 {
   - Datasource - [templates](./docs/data-sources/template.md)
 
 You can find out more examples of usage ICDC provider [here](./docs/guides/)
+
+## Developing the Provider
+If you wish to work on the provider, you'll first need [Go](https://go.dev/) installed on your machine (version 1.19+ is required). You'll also need to correctly setup a [GOPATH](https://go.dev/doc/code#GOPATH), as well as adding `$GOPATH/bin` to your `$PATH`
+
+```bash
+$ git clone git@github.com:icdc-io/terraform-provider-icdc.git
+$ cd terraform-provider-icdc
+$ make install
+
+$ terraform init
+$ terraform plan
+$ terraform apply
+```
+
+Make sure you correctly specified version of the provider, for development goals must be specified
+
+```hcl
+terraform {
+  required_providers {
+    icdc = {
+      source = "local.com/icdc-io/icdc"
+      version = "1.0.0"
+    }
+  }
+}
+```
