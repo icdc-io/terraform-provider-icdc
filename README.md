@@ -71,4 +71,4 @@ resource icdc_instance_group instance-group1 {
   - [Instance Groups](./docs/resources/instance_group.md)
   - Datasource - [templates](./docs/data-sources/template.md)
 
-You can find out more examples of using ICDC provider [here](./docs/guides/)
+You can find out more examples of usage ICDC provider [here](./docs/guides/)
