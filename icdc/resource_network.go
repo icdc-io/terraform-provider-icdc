@@ -23,9 +23,9 @@ func resourceNetwork() *schema.Resource {
 				Computed: true,
 			},
 			"name": {
-				Type:        schema.TypeString,
-				Required:    true,
-				Description: "name of your vpc network",
+				Type:                  schema.TypeString,
+				Required:              true,
+				Description:           "name of your vpc network",
 				DiffSuppressOnRefresh: true,
 				DiffSuppressFunc: func(k, old, new string, d *schema.ResourceData) bool {
 					return convertName(old) == convertName(new)

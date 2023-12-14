@@ -1,8 +1,9 @@
 package icdc
 
 import (
-	"encoding/json"
 	"encoding/base64"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -10,7 +11,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"errors"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 )
@@ -22,7 +22,7 @@ type Jwt struct {
 
 type JwtClaims struct {
 	External struct {
-		Groups []string `json:"groups"`
+		Groups    []string          `json:"groups"`
 		Locations map[string]string `json:"locations"`
 	} `json:"external"`
 }

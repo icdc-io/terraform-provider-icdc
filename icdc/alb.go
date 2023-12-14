@@ -13,7 +13,7 @@ type CloudGateway struct {
 }
 
 type AlbRoute struct {
-	Id                int       `json:"id,omitempty"`
+	Id                int          `json:"id,omitempty"`
 	Name              string       `json:"name"`
 	Hostname          string       `json:"hostname"`
 	Path              string       `json:"path"`
@@ -35,7 +35,7 @@ type Healthcheck struct {
 	Interval        int    `json:"interval"`
 	Timeout         int    `json:"timeout"`
 	FollowRedirects bool   `json:"follow_redirects"`
-	Method			  string       `json:"method"`
+	Method          string `json:"method"`
 }
 
 type AlbService struct {
