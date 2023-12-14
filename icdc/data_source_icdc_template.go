@@ -2,6 +2,8 @@ package icdc
 
 import (
 	"context"
+	"fmt"
+	"net/url"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -12,12 +14,17 @@ func dataSourceICDCTemplate() *schema.Resource {
 		ReadContext: dataSourceICDCTemplateRead,
 		Schema: map[string]*schema.Schema{
 			"id": {
-				Type: schema.TypeString,
+				Type:     schema.TypeString,
 				Computed: true,
 			},
 			"name": {
 				Type:     schema.TypeString,
 				Required: true,
+			},
+			"version": {
+				Type: 	  schema.TypeString,
+				Optional: true,
+				Default: "",
 			},
 		},
 	}
@@ -30,6 +37,12 @@ type ICDCTemplate struct {
 
 func dataSourceICDCTemplateRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	filter := d.Get("name").(string)
+	version := d.Get("version").(string)
+	
+	if version != "" {
+		filter += fmt.Sprintf(":%s", version)
+	}
+
 	templates, err := fetchTemplatesByFilter(filter)
 
 	if err != nil {
@@ -54,6 +67,7 @@ type ICDCTemplateCollection struct {
 }
 
 func fetchTemplatesByFilter(filter string) ([]ICDCTemplate, error) {
+	filter = url.PathEscape(filter)
 	requestUrl := "api/compute/v1/service_templates?expand=resources&filter[]=name='%25" + filter + "%25'"
 	responseBody, err := requestApi("GET", requestUrl, nil)
 
