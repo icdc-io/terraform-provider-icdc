@@ -1,9 +1,10 @@
 package icdc
 
 import (
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"slices"
 	"strconv"
+
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
 type CloudGateway struct {
@@ -12,19 +13,23 @@ type CloudGateway struct {
 	Name string `json:"name"`
 }
 
+type AlbRouteApi struct {
+	Route AlbRoute `json:"route"`
+}
+
 type AlbRoute struct {
-	Id                int          `json:"id,omitempty"`
-	Name              string       `json:"name"`
-	Hostname          string       `json:"hostname"`
-	Path              string       `json:"path"`
-	TargetPort        int          `json:"target_port"`
-	Insecure          string       `json:"insecure,omitempty"`
-	TlsTermination    string       `json:"tls_termination,omitempty"`
-	CloudGatewayId    int          `json:"cloud_gateway_id"`
-	IpVersion         string       `json:"ip_version"`
-	Services          []AlbService `json:"services"`
-	HealtcheckEnabled bool         `json:"healthcheck_enabled"`
-	Healthcheck       `json:"healthcheck"`
+	Id                 int          `json:"id,omitempty"`
+	Name               string       `json:"name"`
+	Hostname           string       `json:"hostname"`
+	Path               string       `json:"path"`
+	TargetPort         int          `json:"target_port"`
+	Insecure           string       `json:"insecure,omitempty"`
+	TlsTermination     string       `json:"tls_termination,omitempty"`
+	CloudGatewayId     int          `json:"cloud_gateway_id"`
+	IpVersion          string       `json:"ip_version"`
+	Services           []AlbService `json:"services"`
+	HealthcheckEnabled bool         `json:"healthcheck_enabled"`
+	Healthcheck        `json:"healthcheck,omitempty"`
 }
 
 type Healthcheck struct {
@@ -111,5 +116,4 @@ func (hc *Healthcheck) assignParams(d *schema.ResourceData) {
 	hc.Timeout = hcMap["timeout"].(int)
 	hc.Scheme = hcMap["scheme"].(string)
 	hc.Method = hcMap["method"].(string)
-
 }

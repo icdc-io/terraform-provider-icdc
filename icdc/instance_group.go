@@ -155,7 +155,7 @@ func generate_secure_password() string {
 	}
 
 	if !match {
-		generate_secure_password()
+		return generate_secure_password()
 	}
 	return p
 }
