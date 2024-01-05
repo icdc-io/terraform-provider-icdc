@@ -209,6 +209,8 @@ type CloudNetworkRequest struct {
 }
 
 // Security groups structures
+
+/*
 type SecurityGroupCollection struct {
 	Resources []SecurityGroup `json:"resources"`
 }
@@ -272,6 +274,7 @@ type SecurityGroupRule struct {
 type SecurityGroupRulesCollection struct {
 	Rules []SecurityGroupRule `json:"firewall_rules"`
 }
+*/
 
 type DeleteRequest struct {
 	Action string `json:"action"`

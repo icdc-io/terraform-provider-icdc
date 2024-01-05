@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 
 	"context"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
@@ -126,18 +126,18 @@ func resourceNetworkCreate(ctx context.Context, d *schema.ResourceData, m interf
 	//(ahrechushkin): we need to wait for subnet created
 	//                cause we use manageiq-api instead of ovn api (in this version of app)
 
-	err = resource.RetryContext(ctx, d.Timeout(schema.TimeoutCreate), func() *resource.RetryError {
+	err = retry.RetryContext(ctx, d.Timeout(schema.TimeoutCreate), func() *retry.RetryError {
 		f, err := subnetCreated(subnetName, cidr, providerId)
 
 		if err != nil {
-			return resource.NonRetryableError(err)
+			return retry.NonRetryableError(err)
 		}
 
 		if f {
 			return nil
 		}
 
-		return resource.RetryableError(fmt.Errorf("cloud subnet is not created"))
+		return retry.RetryableError(fmt.Errorf("cloud subnet is not created"))
 	})
 
 	if err != nil {
