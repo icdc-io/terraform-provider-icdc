@@ -53,7 +53,7 @@ func resourceSecurityGroupCreate(ctx context.Context, d *schema.ResourceData, m 
 		return append(diags, diag.FromErr(err)...)
 	}
 
-	securityGroupCreateRequest := SecurityGroupCreateRequest{
+	securityGroupCreateRequest := SecurityGroupRequest{
 		Action: "create",
 		Name:   convertName(d.Get("name").(string)),
 	}
@@ -146,6 +146,38 @@ func resourceSecurityGroupCreate(ctx context.Context, d *schema.ResourceData, m 
 		},
 	)
 
+	err = retry.RetryContext(
+		ctx,
+		d.Timeout(schema.TimeoutCreate),
+		func() *retry.RetryError {
+			fmt.Println("[---DEBUG---] deleting default group rules")
+
+			if len(createdGroup.SecurityGroupRules) == 0 {
+				return nil
+			}
+
+			createdGroup, err = fetchSecurityGroup(createdGroup.Id)
+			if err != nil {
+				return retry.NonRetryableError(err)
+			}
+
+			rules := createdGroup.SecurityGroupRules
+
+			for _, r := range rules {
+				r.SecurityGroupId = createdGroup.Id
+
+				fmt.Printf("[---DEBUG---] default rule %+v\n", r)
+				ok, err := r.deleteFromGroup()
+
+				if !ok {
+					return retry.NonRetryableError(err)
+				}
+			}
+
+			return retry.RetryableError(fmt.Errorf("waiting for deleting default security group (%s) rules", createdGroup.Id))
+		},
+	)
+
 	err = d.Set("ems_ref", createdGroup.EmsRef)
 	if err != nil {
 		return append(diags, diag.FromErr(err)...)
@@ -170,5 +202,53 @@ func resourceSecurityGroupRead(ctx context.Context, d *schema.ResourceData, m in
 }
 
 func resourceSecurityGroupDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	defer ctx.Done()
+	var diags diag.Diagnostics
+
+	providerId, err := fetchEmsId()
+
+	if err != nil {
+		return append(diags, diag.FromErr(err)...)
+	}
+
+	requestUrl := fmt.Sprintf("api/compute/v1/providers/%s/security_groups", providerId)
+
+	securityGroupDeleteRequest := SecurityGroupRequest{
+		Action: "remove",
+		Name:   d.Get("name").(string),
+		Id:     d.Id(),
+	}
+
+	requestBody, err := json.Marshal(securityGroupDeleteRequest)
+
+	if err != nil {
+		return append(diags, diag.FromErr(err)...)
+	}
+
+	fmt.Printf("[---DEBUG---] requestUrl: %s\n", requestUrl)
+	fmt.Printf("[---DEBUG---] requestBody: %+v", bytes.NewBuffer(requestBody))
+
+	responseBody, err := requestApi("POST", requestUrl, bytes.NewBuffer(requestBody))
+
+	if err != nil {
+		return append(diags, diag.FromErr(err)...)
+	}
+
+	var miqTask MiqTaskResults
+
+	err = responseBody.Decode(&miqTask)
+
+	fmt.Printf("[---DEBUG---] miqTask %+v", miqTask)
+
+	if err != nil {
+		return append(diags, diag.FromErr(err)...)
+	}
+
+	if !miqTask.Results[0].Success {
+		err = fmt.Errorf("can't delete security group: %s", miqTask.Results[0].Message)
+		return append(diags, diag.FromErr(err)...)
+	}
+
+	d.SetId("")
 	return nil
 }

@@ -15,9 +15,10 @@ type SecurityGroupCollection struct {
 	Resources []SecurityGroup `json:"resources"`
 }
 
-type SecurityGroupCreateRequest struct {
+type SecurityGroupRequest struct {
 	Action string `json:"action"`
 	Name   string `json:"name"`
+	Id     string `json:"id,omitempty"`
 }
 
 type MiqTaskResults struct {
@@ -25,6 +26,7 @@ type MiqTaskResults struct {
 		TaskId   string `json:"task_id"`
 		Success  bool   `json:"success"`
 		TaskHref string `json:"task_href"`
+		Message  string `json:"message"`
 	} `json:"results"`
 }
 

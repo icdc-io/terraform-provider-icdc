@@ -22,6 +22,10 @@ func resourceSecurityRule() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
+			"ems_ref": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
 			"direction": {
 				Type:             schema.TypeString,
 				Required:         true,
@@ -144,6 +148,11 @@ func resourceSecurityRuleCreate(ctx context.Context, d *schema.ResourceData, m i
 			break
 		}
 	}
+	err = d.Set("ems_ref", nr.EmsRef)
+
+	if err != nil {
+		return append(diags, diag.FromErr(err)...)
+	}
 
 	d.SetId(nr.Id)
 
@@ -151,7 +160,11 @@ func resourceSecurityRuleCreate(ctx context.Context, d *schema.ResourceData, m i
 }
 
 func resourceSecurityRuleUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	return nil
+	defer ctx.Done()
+	var diags diag.Diagnostics
+
+	err := fmt.Errorf("method does not supported")
+	return append(diags, diag.FromErr(err)...)
 }
 
 func resourceSecurityRuleRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
@@ -159,5 +172,34 @@ func resourceSecurityRuleRead(ctx context.Context, d *schema.ResourceData, m int
 }
 
 func resourceSecurityRuleDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	defer ctx.Done()
+	var diags diag.Diagnostics
+
+	r := SecurityRule{
+		Action: "remove_firewall_rule",
+		Id:     d.Get("ems_ref").(string),
+	}
+
+	fmt.Printf("[---DEBUG---] rule %+v", r)
+
+	requestBody, err := json.Marshal(r)
+	requestUrl := fmt.Sprintf("api/compute/v1/security_groups/%s", d.Get("group_id").(string))
+	responseBody, err := requestApi("POST", requestUrl, bytes.NewBuffer(requestBody))
+
+	var miqTask MiqTaskDelete
+	err = responseBody.Decode(&miqTask)
+
+	fmt.Printf("[---DEBUG---] miqTask result %+v", miqTask)
+
+	if err != nil {
+		return append(diags, diag.FromErr(err)...)
+	}
+
+	if !miqTask.Success {
+		err = fmt.Errorf(miqTask.Message)
+		return append(diags, diag.FromErr(err)...)
+	}
+
+	d.SetId("")
 	return nil
 }
