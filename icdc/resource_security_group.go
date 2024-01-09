@@ -2,18 +2,20 @@ package icdc
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"time"
 )
 
 func resourceSecurityGroup() *schema.Resource {
 	return &schema.Resource{
-		Read:   resourceSecurityGroupRead,
-		Create: resourceSecurityGroupCreate,
-		Update: resourceSecurityGroupUpdate,
-		Delete: resourceSecurityGroupDelete,
+		CreateContext: resourceSecurityGroupCreate,
+		ReadContext:   resourceSecurityGroupRead,
+		UpdateContext: resourceSecurityGroupUpdate,
+		DeleteContext: resourceSecurityGroupDelete,
 		Schema: map[string]*schema.Schema{
 			"id": {
 				Type:     schema.TypeString,
@@ -24,185 +26,229 @@ func resourceSecurityGroup() *schema.Resource {
 				Computed: true,
 			},
 			"name": {
-				Type:     schema.TypeString,
-				Required: true,
+				Type:                  schema.TypeString,
+				Required:              true,
+				DiffSuppressOnRefresh: true,
+				DiffSuppressFunc: func(k, old, new string, d *schema.ResourceData) bool {
+					return convertName(old) == convertName(new)
+				},
 			},
 		},
 	}
 }
 
-func resourceSecurityGroupRead(d *schema.ResourceData, m interface{}) error {
-	var securityGroup *SecurityGroup
+func resourceSecurityGroupCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	var diags diag.Diagnostics
+	defer ctx.Done()
 
-	responseBody, err := requestApi("GET", fmt.Sprintf("security_groups/%s?expand=resources", d.Id()), nil)
-
-	if err != nil {
-		return err
-	}
-
-	err = responseBody.Decode(&securityGroup)
+	emsId, err := fetchEmsId()
 
 	if err != nil {
-		return err
+		return append(diags, diag.FromErr(err)...)
 	}
 
-	err = d.Set("name", securityGroup.Name)
+	snapshot, err := groupsListSnapshot()
 
 	if err != nil {
-		return err
+		return append(diags, diag.FromErr(err)...)
 	}
 
-	err = d.Set("ems_ref", securityGroup.EmsRef)
-
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func resourceSecurityGroupCreate(d *schema.ResourceData, m interface{}) error {
-
-	responseBody, err := requestApi("GET", "providers?expand=resources&filter[]=type=ManageIQ::Providers::Redhat::NetworkManager", nil)
-
-	if err != nil {
-		return err
-	}
-
-	var emsProvider *EmsProvider
-
-	err = responseBody.Decode(&emsProvider)
-
-	if err != nil {
-		return err
-	}
-
-	emsProviderId := emsProvider.Resources[0].Id
-
-	securityGroupCreateRequest := SecurityGroupCreateRequest{
-		Name:   d.Get("name").(string),
+	securityGroupCreateRequest := SecurityGroupRequest{
 		Action: "create",
+		Name:   convertName(d.Get("name").(string)),
 	}
 
 	requestBody, err := json.Marshal(securityGroupCreateRequest)
 
 	if err != nil {
-		return err
+		return append(diags, diag.FromErr(err)...)
 	}
 
-	body := bytes.NewBuffer(requestBody)
+	requestUrl := fmt.Sprintf("api/compute/v1/providers/%s/security_groups", emsId)
+	responseBody, err := requestApi("POST", requestUrl, bytes.NewBuffer(requestBody))
 
-	responseBody, err = requestApi("POST", fmt.Sprintf("providers/%s/security_groups", emsProviderId), body)
+	fmt.Printf("[---DEBUG--] responseBody %+v", responseBody)
+
+	var miqTaskResults MiqTaskResults
+	err = responseBody.Decode(&miqTaskResults)
 
 	if err != nil {
-		return err
+		return append(diags, diag.FromErr(err)...)
 	}
 
-	var taskResponse TaskResponse
+	err = retry.RetryContext(
+		ctx,
+		d.Timeout(schema.TimeoutCreate),
+		func() *retry.RetryError {
+			requestUrl := fmt.Sprintf("api/compute/v1/tasks/%s", miqTaskResults.Results[0].TaskId)
+			responseBody, err := requestApi("GET", requestUrl, nil)
 
-	err = responseBody.Decode(&taskResponse)
+			if err != nil {
+				return retry.NonRetryableError(err)
+			}
+
+			var miqTask MiqTask
+			err = responseBody.Decode(&miqTask)
+
+			if err != nil {
+				return retry.NonRetryableError(err)
+			}
+
+			if miqTask.State == "Finished" && miqTask.Status == "Ok" {
+				return nil
+			}
+
+			return retry.RetryableError(fmt.Errorf("waiting for creating security group task finished: %+v", miqTask))
+		},
+	)
 
 	if err != nil {
-		return err
+		return append(diags, diag.FromErr(err)...)
 	}
 
-	if !taskResponse.Results[0].Success {
-		return fmt.Errorf("error creating security group: %s", taskResponse.Results[0].Message)
-	}
-
-	taskId := taskResponse.Results[0].TaskId
-
-	// Wait for task to complete
-	time.Sleep(30 * time.Second)
-
-	taskResultResponse, err := requestApi("GET", fmt.Sprintf("tasks/%s?expand=resources&attributes=task_results", taskId), nil)
-
+	groups, err := securityGroupList()
 	if err != nil {
-		return err
+		return append(diags, diag.FromErr(err)...)
 	}
 
-	var securityGroupTaskResult SecurityGroupTaskResult
+	var createdGroup SecurityGroup
 
-	err = taskResultResponse.Decode(&securityGroupTaskResult)
+	for _, g := range groups {
+		_, ok := snapshot[g.Id]
 
+		if !ok {
+			createdGroup = g
+			break
+		}
+	}
+
+	fmt.Printf("[---DEBUG---] createdGroup %+v", createdGroup)
+
+	err = retry.RetryContext(
+		ctx,
+		d.Timeout(schema.TimeoutCreate),
+		func() *retry.RetryError {
+			fmt.Println("[---DEBUG---] waiting for security group rules")
+
+			if len(createdGroup.SecurityGroupRules) > 0 {
+				return nil
+			}
+
+			createdGroup, err = fetchSecurityGroup(createdGroup.Id)
+
+			if err != nil {
+				if err != nil {
+					return retry.NonRetryableError(err)
+				}
+			}
+
+			return retry.RetryableError(fmt.Errorf("waiting for creating security group (%s) rules", createdGroup.Id))
+		},
+	)
+
+	err = retry.RetryContext(
+		ctx,
+		d.Timeout(schema.TimeoutCreate),
+		func() *retry.RetryError {
+			fmt.Println("[---DEBUG---] deleting default group rules")
+
+			if len(createdGroup.SecurityGroupRules) == 0 {
+				return nil
+			}
+
+			createdGroup, err = fetchSecurityGroup(createdGroup.Id)
+			if err != nil {
+				return retry.NonRetryableError(err)
+			}
+
+			rules := createdGroup.SecurityGroupRules
+
+			for _, r := range rules {
+				r.SecurityGroupId = createdGroup.Id
+
+				fmt.Printf("[---DEBUG---] default rule %+v\n", r)
+				ok, err := r.deleteFromGroup()
+
+				if !ok {
+					return retry.NonRetryableError(err)
+				}
+			}
+
+			return retry.RetryableError(fmt.Errorf("waiting for deleting default security group (%s) rules", createdGroup.Id))
+		},
+	)
+
+	err = d.Set("ems_ref", createdGroup.EmsRef)
 	if err != nil {
-		return err
+		return append(diags, diag.FromErr(err)...)
 	}
 
-	securityGroupEmsRef := securityGroupTaskResult.TaskResults.SecurityGroups.EmsRef
-
-	// Wait for completely ems refreshing
-
-	//time.Sleep(45 * time.Second)
-
-	securityGroupCollectionResponse, err := requestApi("GET", fmt.Sprintf("security_groups?expand=resources&filter[]=ems_ref=%s", securityGroupEmsRef), nil)
-
+	err = d.Set("name", createdGroup.Name)
 	if err != nil {
-		return err
+		return append(diags, diag.FromErr(err)...)
 	}
 
-	var securityGroupCollection SecurityGroupCollection
-
-	err = securityGroupCollectionResponse.Decode(&securityGroupCollection)
-
-	if err != nil {
-		return err
-	}
-
-	//err = d.Set("Name", securityGroupCollection.Resources[0].Name)
-
-	if err != nil {
-		return err
-	}
-
-	d.SetId(securityGroupCollection.Resources[0].Id)
+	d.SetId(createdGroup.Id)
 
 	return nil
-
 }
 
-func resourceSecurityGroupUpdate(d *schema.ResourceData, m interface{}) error {
+func resourceSecurityGroupUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	return nil
 }
 
-func resourceSecurityGroupDelete(d *schema.ResourceData, m interface{}) error {
+func resourceSecurityGroupRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	return nil
+}
 
-	var emsProvider *EmsProvider
-	responseBody, err := requestApi("GET", "providers?expand=resources&filter[]=type=ManageIQ::Providers::Redhat::NetworkManager", nil)
+func resourceSecurityGroupDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	defer ctx.Done()
+	var diags diag.Diagnostics
+
+	providerId, err := fetchEmsId()
 
 	if err != nil {
-		return err
+		return append(diags, diag.FromErr(err)...)
 	}
 
-	err = responseBody.Decode(&emsProvider)
+	requestUrl := fmt.Sprintf("api/compute/v1/providers/%s/security_groups", providerId)
 
-	if err != nil {
-		return err
-	}
-
-	emsProviderId := emsProvider.Resources[0].Id
-
-	securityGroupDeleteRequest := &SecurityGroupDeleteRequest{
-		Action: "delete",
-		Id:     d.Id(),
+	securityGroupDeleteRequest := SecurityGroupRequest{
+		Action: "remove",
 		Name:   d.Get("name").(string),
+		Id:     d.Id(),
 	}
 
 	requestBody, err := json.Marshal(securityGroupDeleteRequest)
 
 	if err != nil {
-		return err
+		return append(diags, diag.FromErr(err)...)
 	}
 
-	body := bytes.NewBuffer(requestBody)
+	fmt.Printf("[---DEBUG---] requestUrl: %s\n", requestUrl)
+	fmt.Printf("[---DEBUG---] requestBody: %+v", bytes.NewBuffer(requestBody))
 
-	_, err = requestApi("POST", fmt.Sprintf("providers/%s/security_groups", emsProviderId), body)
+	responseBody, err := requestApi("POST", requestUrl, bytes.NewBuffer(requestBody))
 
 	if err != nil {
-		return err
+		return append(diags, diag.FromErr(err)...)
+	}
+
+	var miqTask MiqTaskResults
+
+	err = responseBody.Decode(&miqTask)
+
+	fmt.Printf("[---DEBUG---] miqTask %+v", miqTask)
+
+	if err != nil {
+		return append(diags, diag.FromErr(err)...)
+	}
+
+	if !miqTask.Results[0].Success {
+		err = fmt.Errorf("can't delete security group: %s", miqTask.Results[0].Message)
+		return append(diags, diag.FromErr(err)...)
 	}
 
 	d.SetId("")
-
 	return nil
 }
