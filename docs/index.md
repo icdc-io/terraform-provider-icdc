@@ -19,7 +19,7 @@ provider "icdc" {
 }
 ```
 
-See the [provider reference](provider.md) page for details on authentication and configuring the provider.
+See the [provider reference](#icdc-provider-schema) page for details on authentication and configuring the provider.
 
 
 ## Resources and available features
@@ -49,4 +49,17 @@ See the [provider reference](provider.md) page for details on authentication and
 - [icdc_security_rule](resources/security_rule.md) - produce and operate [security group rules](https://docs.at.icdc.io/networking/firewall/)
   - create
   - delete
+
+## ICDC Provider Schema
+### Required
+- `auth_group` (String, Sensitive) - User active group, contains needed account and role
+- `username` (String, Sensitive)
+- `location` (String, Sensitive) - operated location
+
+### Optional
+- `password` (String, Sensitive) - user password, also user can declare it using env variable `ICDC_PASSWORD`
+- `sso_client_id` (String, Sensitive)
+- `sso_realm` (String, Sensitive) - basically operator name
+- `sso_url` (String, Sensitive)
+
 
