@@ -10,7 +10,6 @@ import (
 )
 
 func requestApi(method, url string, body io.Reader) (*json.Decoder, error) {
-
 	client := &http.Client{Timeout: 100 * time.Second}
 
 	req, err := http.NewRequest(method, fmt.Sprintf("%s/%s", os.Getenv("API_GATEWAY"), url), body)
@@ -21,9 +20,13 @@ func requestApi(method, url string, body io.Reader) (*json.Decoder, error) {
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", os.Getenv("AUTH_TOKEN")))
-	req.Header.Set("X_MIQ_GROUP", fmt.Sprintf("%s.%s", os.Getenv("ACCOUNT"), os.Getenv("ROLE")))
+	req.Header.Set("x-icdc-account", os.Getenv("ACCOUNT"))
+	req.Header.Set("x-icdc-role", os.Getenv("ROLE"))
+	req.Header.Set("x-auth-group", os.Getenv("AUTH_GROUP"))
+	req.Header.Set("x-miq-group", os.Getenv("AUTH_GROUP"))
 
 	r, err := client.Do(req)
+
 	if err != nil {
 		return nil, err
 	}
@@ -39,7 +42,7 @@ func requestApi(method, url string, body io.Reader) (*json.Decoder, error) {
 func PrettyStruct(data interface{}) (string, error) {
 	val, err := json.MarshalIndent(data, "", "    ")
 	if err != nil {
-			return "", err
+		return "", err
 	}
 	return string(val), nil
 }
