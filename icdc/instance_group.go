@@ -142,7 +142,7 @@ func vmsAllocationsList(networks []ComputeNetwork) ([]VmAllocation, error) {
 
 }
 
-func generate_secure_password() string {
+func generateSecurePassword() string {
 	p, err := password.Generate(16, 4, 2, false, true)
 	if err != nil {
 		log.Fatal(err)
@@ -155,8 +155,17 @@ func generate_secure_password() string {
 	}
 
 	if !match {
-		return generate_secure_password()
+		return generateSecurePassword()
 	}
+
+	if p[len(p)-1] > 47 && p[len(p)-1] < 58 {
+		return generateSecurePassword()
+	}
+
+	if p[0] > 47 && p[0] < 58 {
+		return generateSecurePassword()
+	}
+
 	return p
 }
 

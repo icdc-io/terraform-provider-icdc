@@ -164,7 +164,7 @@ func resourceInstanceGroupCreate(ctx context.Context, d *schema.ResourceData, m 
 	password := d.Get("password").(string)
 
 	if password == "" {
-		password = generate_secure_password()
+		password = generateSecurePassword()
 	}
 
 	serviceRequest := &InstanceGroupRequest{
@@ -237,14 +237,14 @@ func resourceInstanceGroupCreate(ctx context.Context, d *schema.ResourceData, m 
 		return append(diags, diag.FromErr(err)...)
 	}
 
-	instances_count, _ := strconv.Atoi(d.Get("instances_count").(string))
+	iCount, _ := strconv.Atoi(d.Get("instances_count").(string))
 
 	err = resource.RetryContext(ctx, d.Timeout(schema.TimeoutCreate), func() *resource.RetryError {
 
 		log.Println("Waiting for instances creating")
 
 		count, _ := instancesCount(serviceId)
-		if count == instances_count {
+		if count == iCount {
 			return nil
 		}
 
@@ -280,7 +280,7 @@ func resourceInstanceGroupCreate(ctx context.Context, d *schema.ResourceData, m 
 			}
 		}
 
-		if allocationsCount >= instances_count {
+		if allocationsCount >= iCount {
 			return nil
 		}
 
