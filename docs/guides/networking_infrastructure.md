@@ -5,11 +5,11 @@ description: |-
    A guide for building network infrastructure in ICDC-powered clouds with Terraform provider.
 ---
 
-## VPC
+### VPC
 -> Note: Since we have not released networking v2, by default, each account has 1 preconfigured VPC router.
 VPC includes a virtual router, networks, subnets, load balancer gateway, VPN gateway.
 
-## Create Network and Subnet
+### Create Network and Subnet
 -> Note: One subnet per one network.
 
 1. Edit the Terraform configuration to add the `icdc_network` resource
@@ -28,7 +28,7 @@ VPC includes a virtual router, networks, subnets, load balancer gateway, VPN gat
    This will produce a new network and subnet, with automatically enabled DHCP.
 
 Now you can use the network to create an `instance group` or `service` with instances and VMs with network interfaces in this subnet.
-## Instance Level Firewall
+### Instance Level Firewall
 -> Note: By default, we have disabled `internal firewall` like `ufw`, `firewalld`, etc.
 
 Instance level firewall includes security_groups and security_rules.
@@ -67,7 +67,7 @@ Instance level firewall includes security_groups and security_rules.
 4. Run `terraform apply` to create security rules
 
    This will produce three security rules allowing each outbound traffic and inbound TCP IPv4 traffic on port 443.
-## Domains
+### Domains
 -> Restriction: we currently support only `A, AAAA, CNAME, TXT, MX, SRV, NS` types of records.
 
 -> Note: By default, each account has two domain zones: `ACC.cmp.LOC.icdc.io` and `ACC.vpn.LOC.icdc.io`.
