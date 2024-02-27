@@ -1,6 +1,8 @@
 ---
 page_title: "icdc_alb_route Resource - terraform-provider-icdc"
+subcategory: "networking"
 description: |-
+    Resource icdc_alb_route details.
 ---
 # icdc_alb_route (Resource)
 Application Load Balancer (ALB) is a network service that distributes incoming public web traffic between virtual servers to provide fault tolerance for websites and applications.
