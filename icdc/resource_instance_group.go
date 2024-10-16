@@ -185,6 +185,7 @@ func resourceInstanceGroupCreate(ctx context.Context, d *schema.ResourceData, m 
 				NumberOfVms:         d.Get("instances_count").(string),
 				ServiceTemplateHref: fmt.Sprintf("/api/service_templates/%s", d.Get("template_id").(string)),
 				UserData:            d.Get("user_data").(string),
+				SshKey:              d.Get("ssh_key").(string),
 			},
 		},
 	}
