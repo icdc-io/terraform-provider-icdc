@@ -177,6 +177,8 @@ func resourceInstanceGroupCreate(ctx context.Context, d *schema.ResourceData, m 
 				VmMemory:            d.Get("memory_mb").(string),
 				SystemDiskType:      d.Get("system_disk_type").(string),
 				SystemDiskSize:      d.Get("system_disk_size").(string),
+				AdditionalDiskType:  d.Get("additional_disk_type").(string),
+				AdditionalDiskSize:  d.Get("additional_disk_size").(string),
 				Vlan:                vlan,
 				PassAuth:            d.Get("pass_auth").(string),
 				Password:            password,
@@ -197,7 +199,6 @@ func resourceInstanceGroupCreate(ctx context.Context, d *schema.ResourceData, m 
 
 	body := bytes.NewBuffer(requestBody)
 
-	// prettystruct for logs
 	log.Println(PrettyStruct(serviceRequest))
 
 	responseBody, err := requestApi("POST", "api/compute/v1/service_orders/cart/service_requests/", body)
@@ -213,6 +214,11 @@ func resourceInstanceGroupCreate(ctx context.Context, d *schema.ResourceData, m 
 	log.Println(PrettyStruct(serviceRequestResponse))
 
 	serviceRequestId := serviceRequestResponse.Results[0].ServiceRequestId
+
+	if serviceRequestResponse.Results[0].Success != true {
+		err = fmt.Errorf(serviceRequestResponse.Results[0].Message)
+		return append(diags, diag.FromErr(err)...)
+	}
 
 	var serviceId string
 
