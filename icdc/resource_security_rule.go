@@ -168,6 +168,43 @@ func resourceSecurityRuleUpdate(ctx context.Context, d *schema.ResourceData, m i
 }
 
 func resourceSecurityRuleRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	defer ctx.Done()
+	var diags diag.Diagnostics
+
+	existedRules, err := rulesListSnapshot(d.Get("group_id").(string))
+
+	if err != nil {
+		return append(diags, diag.FromErr(err)...)
+	}
+
+	for _, rule := range existedRules {
+		if rule.Id == d.Id() {
+			err = d.Set("direction", remapDirection(strings.ToLower(rule.Direction)))
+			if err != nil {
+				return append(diags, diag.FromErr(err)...)
+			}
+
+			err = d.Set("protocol", strings.ToLower(rule.HostProtocol))
+			if err != nil {
+				return append(diags, diag.FromErr(err)...)
+			}
+			err = d.Set("network_protocol", strings.ToLower(rule.NetworkProtocol))
+			if err != nil {
+				return append(diags, diag.FromErr(err)...)
+			}
+			err = d.Set("remote_group_id", rule.RemoteGroupId)
+			if err != nil {
+				return append(diags, diag.FromErr(err)...)
+			}
+			err = d.Set("remote_ip_subnet", rule.SourceIpRange)
+			if err != nil {
+				return append(diags, diag.FromErr(err)...)
+			}
+			return nil
+		}
+	}
+
+	d.SetId("")
 	return nil
 }
 

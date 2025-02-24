@@ -13,6 +13,7 @@ type SecurityRule struct {
 	PortRangeMin    string `json:"port_range_min,omitempty"`
 	PortRangeMax    string `json:"port_range_max,omitempty"`
 	Protocol        string `json:"protocol,omitempty"`
+	HostProtocol    string `json:"host_protocol,omitempty"`
 	NetworkProtocol string `json:"network_protocol,omitempty"`
 	RemoteGroupId   string `json:"remote_group_id,omitempty"`
 	SecurityGroupId string `json:"security_group_id,omitempty"`
@@ -63,4 +64,15 @@ func rulesListSnapshot(groupId string) ([]SecurityRule, error) {
 	}
 
 	return securityGroup.SecurityGroupRules, nil
+}
+
+func remapDirection(direction string) string {
+	switch direction {
+	case "inbound":
+		return "ingress"
+	case "outbound":
+		return "egress"
+	default:
+		return direction
+	}
 }

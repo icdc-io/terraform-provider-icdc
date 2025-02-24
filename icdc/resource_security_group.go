@@ -67,6 +67,10 @@ func resourceSecurityGroupCreate(ctx context.Context, d *schema.ResourceData, m 
 	requestUrl := fmt.Sprintf("api/compute/v1/providers/%s/security_groups", emsId)
 	responseBody, err := requestApi("POST", requestUrl, bytes.NewBuffer(requestBody))
 
+	if err != nil {
+		return append(diags, diag.FromErr(err)...)
+	}
+
 	fmt.Printf("[---DEBUG--] responseBody %+v", responseBody)
 
 	var miqTaskResults MiqTaskResults
