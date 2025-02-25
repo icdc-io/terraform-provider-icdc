@@ -231,39 +231,28 @@ func resourceAlbRouteRead(d *schema.ResourceData, m interface{}) error {
 
 func resourceAlbRouteUpdate(d *schema.ResourceData, m interface{}) error {
 
-	/* ahrechushkin: update action will be implemented after implementing PATCH action in alb-api
-	var route AlbRoute
+	services := servicesByExtId(d.Get("services").([]interface{}))
+	healthcheck := d.Get("healthcheck").(*schema.Set)
+	hcList := healthcheck.List()
 
-	if d.HasChange("name") {
-		route.Name = d.Get("name").(string)
+	hcEnabled := len(hcList) > 0
+	hc := Healthcheck{}
+	if hcEnabled {
+		hc.assignParams(d)
 	}
 
-	if d.HasChange("hostname") {
-		route.Hostname = d.Get("hostname").(string)
-	}
-
-	if d.HasChange("path") {
-		route.Path = d.Get("path").(string)
-	}
-
-	if d.HasChange("target_port") {
-		route.TargetPort = d.Get("target_port").(int)
-	}
-
-	if d.HasChange("insecure") {
-		route.Insecure = d.Get("insecure").(string)
-	}
-
-	if d.HasChange("tls_termination") {
-		route.TlsTermination = d.Get("tls_termination").(string)
-	}
-
-	if d.HasChange("services") {
-		route.Services = servicesByExtId(d.Get("services").([]interface{}))
-	}
-
-	if d.HasChange("ip_version") {
-		route.IpVersion = strconv.Itoa(d.Get("ip_version").(int))
+	route := AlbRoute{
+		Name:               d.Get("name").(string),
+		Hostname:           d.Get("hostname").(string),
+		Path:               d.Get("path").(string),
+		TargetPort:         d.Get("target_port").(int),
+		Insecure:           d.Get("insecure").(string),
+		TlsTermination:     d.Get("tls_termination").(string),
+		CloudGatewayId:     cloudGwIdByName(d.Get("cloudgw_name").(string)),
+		IpVersion:          strconv.Itoa(d.Get("ip_version").(int)),
+		Services:           services,
+		HealthcheckEnabled: hcEnabled,
+		Healthcheck:        hc,
 	}
 
 	fmt.Printf("[---DEBUG---] route changes %+v", route)
@@ -284,12 +273,13 @@ func resourceAlbRouteUpdate(d *schema.ResourceData, m interface{}) error {
 	}
 
 	requestUrl := fmt.Sprintf("api/traefik_manager/v1/routes/%s", d.Id())
-	_, err = requestApi("PUT", requestUrl, body)
+	resp, err := requestApi("PUT", requestUrl, body)
 
 	if err != nil {
 		return err
 	}
-	*/
+
+	fmt.Println("[DEBUG] %+v\n", resp)
 
 	return nil
 }
