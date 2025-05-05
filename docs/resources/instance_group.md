@@ -28,7 +28,7 @@ An **instance group** (old Service) is a collection of virtual machines (VMs) in
 - `additional_disk_type` (String)
 - `description` (String)
 - `managed_access` (String)
-- `security_group` (String)
+- `security_group` (String) - id of security group
 - `ssh_key` (String)
 - `timeouts` (Block, Optional) (see [below for nested schema](#nestedblock--timeouts))
 - `user_data` (String)
