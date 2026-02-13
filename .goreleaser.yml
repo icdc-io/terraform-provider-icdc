@@ -1,0 +1,64 @@
+project_name: terraform-provider-icdc
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - env:
+      - CGO_ENABLED=0
+    main: .
+    goos:
+      - darwin
+      - linux
+      - windows
+      - freebsd
+    goarch:
+      - amd64
+      - arm64
+      - '386'
+      - arm
+    ignore:
+      - goos: darwin
+        goarch: '386'
+    binary: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
+
+archives:
+  - format: zip
+    name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
+
+checksum:
+  name_template: '{{ .ProjectName }}_{{ .Version }}_SHA256SUMS'
+  algorithm: sha256
+
+signs:
+  - artifacts: checksum
+    args:
+      - "--batch"
+      - "--local-user"
+      - "{{ .Env.GPG_FINGERPRINT }}"
+      - "--output"
+      - "${signature}"
+      - "--detach-sign"
+      - "${artifact}"
+changelog:
+  use: github
+  sort: asc
+  groups:
+    - title: '🚀 Features'
+      regexp: '^.*feat[(\w+)]?:\s.*'
+      order: 0
+    - title: '🐛 Bug Fixes'
+      regexp: '^.*fix[(\w+)]?:\s.*'
+      order: 1
+    - title: '📖 Documentation'
+      regexp: '^.*docs[(\w+)]?:\s.*'
+      order: 2
+    - title: '⚙️ Others'
+      order: 999
+  filters:
+    exclude:
+      - '^chore:'
+      - '^test:'
+      - '^ci:'
+      - '(?i)merge'
