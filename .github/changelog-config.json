@@ -1,0 +1,52 @@
+{
+  "categories": [
+    { "title": "## 🚀 Features", "labels": ["feat", "feature"] },
+    { "title": "## 🐛 Fixes", "labels": ["fix", "bug"] },
+    { "title": "## 📖 Documentation", "labels": ["docs", "doc", "documentation"] },
+    { "title": "## 📦 Maintenance", "labels": ["chore", "build", "perf", "refactor", "style"] },
+    { "title": "## 🧺 Other Changes", "labels": [] }
+  ],
+  "template": "#{{CHANGELOG}}",
+  "pr_template": "- #{{TITLE}} (@#{{AUTHOR}}) [##{{NUMBER}}](https://github.com/#{{OWNER}}/#{{REPO}}/pull/#{{NUMBER}})",
+  "empty_template": "- No significant changes found.",
+  "sort": "ASC",
+  "ignore_labels": ["ignore", "ignore-for-release"],
+  "transformers": [
+    {
+      "pattern": "^.+?:\\s*",
+      "target": ""
+    }
+  ],
+  "label_extractor": [
+    {
+      "pattern": ".*(docs|doc).*",
+      "target": "docs",
+      "flags": "i",
+      "on_property": "title"
+    },
+    {
+      "pattern": ".*(feat|feature).*",
+      "target": "feat",
+      "flags": "i",
+      "on_property": "title"
+    },
+    {
+      "pattern": ".*(fix|bug).*",
+      "target": "fix",
+      "flags": "i",
+      "on_property": "title"
+    },
+    {
+      "pattern": ".*(chore|build|perf|refactor|style).*",
+      "target": "chore",
+      "flags": "i",
+      "on_property": "title"
+    },
+    {
+      "pattern": ".*(ci|test|merge).*",
+      "target": "ignore",
+      "flags": "i",
+      "on_property": "title"
+    }
+  ]
+}
