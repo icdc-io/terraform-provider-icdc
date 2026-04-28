@@ -3,6 +3,7 @@ package icdc
 type Service struct {
 	ID                string `json:"id"`
 	Name              string `json:"name"`
+	Description       string `json:"description"`
 	SshKey            string
 	ServiceTemplateId string           `json:"service_template_id"`
 	Vms               []VmParams       `json:"vms"`
@@ -103,6 +104,9 @@ type ServiceMiqRequest struct {
 	MiqRequestTasks []struct {
 		DestinationId   string `json:"destination_id"`
 		DestinationType string `json:"destination_type"`
+		State           string `json:"state"`
+		Status          string `json:"status"`
+		Message         string `json:"message"`
 	} `json:"miq_request_tasks"`
 }
 
@@ -153,13 +157,13 @@ type Vm struct {
 type VmReconfigureRequest struct {
 	Action   string `json:"action"`
 	Resource struct {
-		CoresPerSocket  string       `json:"cores_per_socket"`
-		DiskAdd         []DiskAdd    `json:"disk_add,omitempty"`
-		DiskRemove      []DiskRemove `json:"disk_remove,omitempty"`
-		NumberOfCpus    string       `json:"number_of_cpus"`
-		NumberOfSockets string       `json:"number_of_sockets"`
+		CoresPerSocket  int          `json:"cores_per_socket"`
+		DiskAdd         []DiskAdd    `json:"disk_add"`
+		DiskRemove      []DiskRemove `json:"disk_remove"`
+		NumberOfCpus    int          `json:"number_of_cpus"`
+		NumberOfSockets int          `json:"number_of_sockets"`
 		RequestType     string       `json:"request_type"`
-		VmMemory        string       `json:"vm_memory"`
+		VmMemory        int          `json:"vm_memory"`
 	} `json:"resource"`
 }
 
@@ -177,8 +181,9 @@ type DiskRemove struct {
 type ServiceReconfigureRequest struct {
 	Action   string `json:"action"`
 	Resource struct {
-		ID   string `json:"id"`
-		Name string `json:"name"`
+		ID          string `json:"id"`
+		Name        string `json:"name"`
+		Description string `json:"description,omitempty"`
 	} `json:"resource"`
 }
 
@@ -187,6 +192,8 @@ type ChangeNetworkTypeRequest struct {
 	Resource struct {
 		Params struct {
 			DialogNetworkProfile string `json:"dialog_network_profile"`
+			DialogVmID           string `json:"dialog_vm_id,omitempty"`
+			NewNetworkName       string `json:"new_network_name,omitempty"`
 		} `json:"params"`
 		Path string `json:"path"`
 		Task string `json:"task"`

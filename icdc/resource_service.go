@@ -19,6 +19,7 @@ import (
 
 func resourceService() *schema.Resource {
 	return &schema.Resource{
+		DeprecationMessage: "`icdc_service` is deprecated and will be removed in a future release. Use `icdc_instance_group` instead.",
 		Read:   resourceServiceRead,
 		Create: resourceServiceCreate,
 		Update: resourceServiceUpdate,
@@ -501,13 +502,22 @@ func resourceServiceUpdate(d *schema.ResourceData, m interface{}) error {
 		*/
 
 		if d.HasChange("vms.0.cpu_cores") || d.HasChange("vms.0.memory_mb") || d.HasChange("vms.0.additional_disk") {
+			targetMem, err := strconv.Atoi(d.Get("vms.0.memory_mb").(string))
+			if err != nil {
+				return fmt.Errorf("invalid vms.0.memory_mb value: %w", err)
+			}
+			targetCPU, err := strconv.Atoi(d.Get("vms.0.cpu_cores").(string))
+			if err != nil {
+				return fmt.Errorf("invalid vms.0.cpu_cores value: %w", err)
+			}
+
 			var vmReconfigureRequest VmReconfigureRequest
 			vmReconfigureRequest.Action = "reconfigure"
 			vmReconfigureRequest.Resource.RequestType = "vm_reconfigure"
-			vmReconfigureRequest.Resource.VmMemory = d.Get("vms.0.memory_mb").(string)
-			vmReconfigureRequest.Resource.NumberOfCpus = d.Get("vms.0.cpu_cores").(string)
-			vmReconfigureRequest.Resource.NumberOfSockets = "1"
-			vmReconfigureRequest.Resource.CoresPerSocket = d.Get("vms.0.cpu_cores").(string)
+			vmReconfigureRequest.Resource.VmMemory = targetMem
+			vmReconfigureRequest.Resource.NumberOfCpus = targetCPU
+			vmReconfigureRequest.Resource.NumberOfSockets = 1
+			vmReconfigureRequest.Resource.CoresPerSocket = targetCPU
 
 			if d.HasChange("vms.0.additional_disk") {
 				/*
@@ -653,9 +663,18 @@ func (vmReconfigureRequest *VmReconfigureRequest) setAdditionalDisksRequest(d *s
 		// if delete -> destroy
 
 		// convert map index path from string to int
+		if len(value.Path) == 0 {
+			return fmt.Errorf("empty path in disk changelog")
+		}
 		index, err := strconv.Atoi(value.Path[0])
 		if err != nil {
 			return fmt.Errorf("error converting from string to int: %w", err)
+		}
+		if index < 0 || index >= len(ns) && value.Type == "create" {
+			return fmt.Errorf("new disk index out of range: %d", index)
+		}
+		if index < 0 || index >= len(os) && value.Type == "delete" {
+			return fmt.Errorf("old disk index out of range: %d", index)
 		}
 
 		switch value.Type {
@@ -691,10 +710,15 @@ func (vmReconfigureRequest *VmReconfigureRequest) setAdditionalDisksRequest(d *s
 		if err != nil {
 			return fmt.Errorf("error converting from string to int: %w", err)
 		}
+		if index < 0 || index >= len(os) || index >= len(ns) {
+			return fmt.Errorf("updated disk index out of range: %d", index)
+		}
 
+		old := os[index].(map[string]interface{})
 		new := ns[index].(map[string]interface{})
 
-		diskRemove, err := diskRemove(&new)
+		// For "update", API expects disk removal by existing disk filename from old state.
+		diskRemove, err := diskRemove(&old)
 		if err != nil {
 			return fmt.Errorf("error removing disk to request: %w", err)
 		}
