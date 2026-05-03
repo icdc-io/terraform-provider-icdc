@@ -58,6 +58,14 @@ func instancesCount(serviceId string) (int, diag.Diagnostics) {
 		return 0, append(diags, diag.FromErr(err)...)
 	}
 
+	bodyString, prettyErr := PrettyStruct(service)
+	// Proper debug log handling.
+	if prettyErr == nil {
+		log.Printf("[DEBUG] API response body for service %s:\n%s", serviceId, bodyString)
+	} else {
+		log.Printf("[DEBUG] Failed to format response body: %s", prettyErr)
+	}
+
 	return len(service.Vms), nil
 }
 

@@ -272,25 +272,110 @@ func resourceServiceCreate(d *schema.ResourceData, m interface{}) error {
 }
 
 func fetchDestinationId(serviceRequestId string, destinationType string) (string, error) {
-
-	responseBody, err := requestApi("GET", fmt.Sprintf("api/compute/v1/service_requests/%s?expand=resources&attributes=miq_request_tasks", serviceRequestId), nil)
+	requestURL := fmt.Sprintf("api/compute/v1/service_requests/%s?expand=resources&attributes=miq_request_tasks,state,status,message,reason", serviceRequestId)
+	responseBody, err := requestApi("GET", requestURL, nil)
 	if err != nil {
 		return "", err
+	}
+
+	// Decode raw payload first so we can inspect top-level fields even when tasks are empty.
+	var raw map[string]interface{}
+	if err := responseBody.Decode(&raw); err != nil {
+		return "", fmt.Errorf("error decoding service request response: %w", err)
+	}
+
+	if s, prettyErr := PrettyStruct(raw); prettyErr == nil {
+		log.Printf("[DEBUG] Service request %s raw response:\n%s", serviceRequestId, s)
+	}
+
+	requestState := strings.ToLower(strings.TrimSpace(asString(raw["state"])))
+	requestStatus := strings.ToLower(strings.TrimSpace(asString(raw["status"])))
+	requestMessage := strings.TrimSpace(asString(raw["message"]))
+	requestReason := strings.TrimSpace(asString(raw["reason"]))
+
+	log.Printf("[DEBUG] Service request %s summary: state=%q status=%q message=%q reason=%q", serviceRequestId, requestState, requestStatus, requestMessage, requestReason)
+
+	// Explicit quota failure handling for fast, clear errors.
+	if requestState == "finished" && (requestStatus == "denied" || requestStatus == "rejected") {
+		msg := normalizeFailureMessage(firstNonEmpty(requestMessage, requestReason, fmt.Sprintf("service request %s was denied", serviceRequestId)))
+		if strings.Contains(strings.ToLower(requestReason), "quota") || strings.Contains(strings.ToLower(requestMessage), "quota") {
+			return "", fmt.Errorf("quota exceeded for instance group create: %s", msg)
+		}
+		return "", fmt.Errorf("instance group create request denied: %s", msg)
+	}
+
+	// Catch terminal failures even when miq_request_tasks is empty (quota and validation failures may end here).
+	if isTerminalFailureState(requestState, requestStatus) {
+		msg := normalizeFailureMessage(firstNonEmpty(requestMessage, requestReason, fmt.Sprintf("service request %s failed with state=%s status=%s", serviceRequestId, requestState, requestStatus)))
+		return "", fmt.Errorf("instance group create request failed: %s", msg)
+	}
+
+	// Map raw payload into typed structure for task-level checks.
+	buf, err := json.Marshal(raw)
+	if err != nil {
+		return "", fmt.Errorf("error marshaling service request payload: %w", err)
 	}
 
 	var response *ServiceMiqRequest
-	err = responseBody.Decode(&response)
-	if err != nil {
-		return "", err
+	if err := json.Unmarshal(buf, &response); err != nil {
+		return "", fmt.Errorf("error parsing service request tasks: %w", err)
 	}
 
-	for i := range response.MiqRequestTasks {
-		if response.MiqRequestTasks[i].DestinationType == destinationType {
-			return response.MiqRequestTasks[i].DestinationId, nil
+	if response == nil || response.MiqRequestTasks == nil {
+		return "", nil
+	}
+
+	for _, task := range response.MiqRequestTasks {
+		if strings.EqualFold(task.State, "finished") && !strings.EqualFold(task.Status, "ok") {
+			msg := strings.TrimSpace(task.Message)
+			if msg == "" {
+				msg = fmt.Sprintf("service request %s failed with status=%s", serviceRequestId, task.Status)
+			}
+			return "", fmt.Errorf(msg)
+		}
+		if task.DestinationType == destinationType {
+			return task.DestinationId, nil
 		}
 	}
 
 	return "", nil
+}
+
+func asString(v interface{}) string {
+	// Convert interface{} to string for robust logging/parsing of dynamic API payloads.
+	if v == nil {
+		return ""
+	}
+	if s, ok := v.(string); ok {
+		return s
+	}
+	return fmt.Sprintf("%v", v)
+}
+
+func firstNonEmpty(values ...string) string {
+	// Return first non-empty trimmed value, useful for fallback error messages.
+	for _, v := range values {
+		if strings.TrimSpace(v) != "" {
+			return strings.TrimSpace(v)
+		}
+	}
+	return ""
+}
+
+func isTerminalFailureState(state, status string) bool {
+	// Treat request as terminal failure when state is finished/error/failed
+	// and status is not one of known in-progress/success states.
+	terminalState := state == "finished" || state == "error" || state == "failed"
+	failedStatus := status != "" && status != "ok" && status != "queued" && status != "pending" && status != "running"
+	return terminalState && failedStatus
+}
+
+func normalizeFailureMessage(msg string) string {
+	// Normalize API error text for user-facing diagnostics.
+	msg = strings.TrimSpace(msg)
+	msg = strings.TrimSuffix(msg, ".")
+	msg = strings.TrimSpace(msg)
+	return msg
 }
 
 func fetchDestinationVm(serviceRequestId string) (string, error) {

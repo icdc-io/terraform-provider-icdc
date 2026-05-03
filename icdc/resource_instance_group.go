@@ -212,9 +212,17 @@ func resourceInstanceGroupCreate(ctx context.Context, d *schema.ResourceData, m 
 	if err = responseBody.Decode(&serviceRequestResponse); err != nil {
 		return append(diags, diag.FromErr(err)...)
 	}
-
 	log.Println(PrettyStruct(serviceRequestResponse))
 
+	if serviceRequestResponse == nil || len(serviceRequestResponse.Results) == 0 {
+		return append(diags, diag.FromErr(fmt.Errorf("empty service request response"))...)
+	}
+	if serviceRequestResponse.Results[0].Success != true {
+		err = fmt.Errorf(serviceRequestResponse.Results[0].Message)
+		return append(diags, diag.FromErr(err)...)
+	}
+
+	// Create is asynchronous: this ID is for the request/task, not the final service object.
 	serviceRequestId := serviceRequestResponse.Results[0].ServiceRequestId
 
 	var serviceId string
@@ -229,12 +237,43 @@ func resourceInstanceGroupCreate(ctx context.Context, d *schema.ResourceData, m 
 		if err != nil {
 			return resource.NonRetryableError(err)
 		}
-
-		if serviceId != "" {
-			return nil
+		if serviceId == "" {
+			return resource.RetryableError(fmt.Errorf("service destination id is not ready yet"))
 		}
 
-		return resource.RetryableError(fmt.Errorf("error: service is not created"))
+		return nil
+	})
+
+	if err != nil {
+		return append(diags, diag.FromErr(err)...)
+	}
+	log.Printf("[DEBUG] Service %s found for request %s", serviceId, serviceRequestId)
+
+	// Fail fast on provisioning errors instead of waiting for create timeout.
+	// The lifecycle state is driven by backend request task status.
+	err = resource.RetryContext(ctx, d.Timeout(schema.TimeoutCreate), func() *resource.RetryError {
+		resp, reqErr := requestApi("GET", fmt.Sprintf("api/compute/v1/services/%s?expand=resources", serviceId), nil)
+		if reqErr != nil {
+			return resource.RetryableError(fmt.Errorf("failed to fetch service %s lifecycle: %w", serviceId, reqErr))
+		}
+
+		var serviceLifecycle *ServiceVmProvisonResponse
+		if decodeErr := resp.Decode(&serviceLifecycle); decodeErr != nil {
+			return resource.RetryableError(fmt.Errorf("failed to decode service %s lifecycle response: %w", serviceId, decodeErr))
+		}
+		if serviceLifecycle == nil {
+			return resource.RetryableError(fmt.Errorf("empty lifecycle response for service %s", serviceId))
+		}
+
+		log.Printf("[DEBUG] Service %s lifecycle_state=%s", serviceId, serviceLifecycle.LifecycleState)
+		switch serviceLifecycle.LifecycleState {
+		case "error_in_provisioning":
+			return resource.NonRetryableError(fmt.Errorf("service %s provisioning failed (lifecycle_state=%s)", serviceId, serviceLifecycle.LifecycleState))
+		case "provisioned":
+			return nil
+		default:
+			return resource.RetryableError(fmt.Errorf("waiting for service %s provisioning, current lifecycle_state=%s", serviceId, serviceLifecycle.LifecycleState))
+		}
 	})
 
 	if err != nil {
@@ -243,11 +282,15 @@ func resourceInstanceGroupCreate(ctx context.Context, d *schema.ResourceData, m 
 
 	iCount, _ := strconv.Atoi(d.Get("instances_count").(string))
 
+	// Wait until the expected VM count appears under the service.
 	err = resource.RetryContext(ctx, d.Timeout(schema.TimeoutCreate), func() *resource.RetryError {
 
 		log.Println("Waiting for instances creating")
 
-		count, _ := instancesCount(serviceId)
+		count, countDiags := instancesCount(serviceId)
+		if countDiags.HasError() {
+			return resource.RetryableError(fmt.Errorf("failed to count instances for service %s", serviceId))
+		}
 		if count == iCount {
 			return nil
 		}
@@ -273,9 +316,15 @@ func resourceInstanceGroupCreate(ctx context.Context, d *schema.ResourceData, m 
 		if err != nil {
 			return resource.RetryableError(fmt.Errorf("error: cant parse service object"))
 		}
+		if networkBody, prettyErr := PrettyStruct(service.Networks); prettyErr == nil {
+			log.Printf("[DEBUG] Network response for service %s:\n%s", serviceId, networkBody)
+		} else {
+			log.Printf("[DEBUG] Failed to pretty print network response for service %s: %v", serviceId, prettyErr)
+		}
 		log.Println("Waiting for networks config applying")
 
-		//we need to fetch all allocations with type - nic and non-empty ip addresses
+		// Network readiness means each VM has at least one NIC allocation with a non-empty IP.
+		// This avoids returning from create before networking is actually usable.
 		allocationsCount := 0
 		allocations, _ := vmsAllocationsList(service.Networks)
 		for _, allocation := range allocations {
@@ -295,22 +344,12 @@ func resourceInstanceGroupCreate(ctx context.Context, d *schema.ResourceData, m 
 		return append(diags, diag.FromErr(err)...)
 	}
 
-	instancesList, err := fetchInstanceList(serviceId)
-
-	if err != nil {
-		return append(diags, diag.FromErr(err)...)
-	}
-
 	d.SetId(serviceId)
 
-	err = d.Set("instances", instancesList)
-
-	if err != nil {
-		return append(diags, diag.FromErr(err)...)
-	}
-
-	return nil
+	// Final read normalizes all computed/derived fields in state from live API data.
+	return resourceInstanceGroupRead(ctx, d, m)
 }
+
 
 func resourceInstanceGroupRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	var diags diag.Diagnostics
